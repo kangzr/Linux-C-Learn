@@ -6,9 +6,40 @@ Epoll(event poll)是IO管理组件，用来取代**IO多路复用**函数poll和
 
 **数据结构：**
 
-内核态: 红黑树 存储注册事件  ； 就绪队列双向链表
+内核态: 红黑树 存储注册事件(插入时间复杂度logn)  ； 就绪队列双向链表
 
 用户态：数组 ：epoll_wait 遍历nevent
+
+```c
+// epoll对应的结构
+struct eventpool {
+    ...
+	struct rb_root  rbr;  // 红黑树根节点，存储所有通过epoll_ctl添加进来的fd
+    struct list_head rdlist; // 双链表存放有事件触发的fd，通过epoll_wait返回给用户
+    ...
+}
+
+// 每个epoll中的事件(fd)的结构
+struct epitem {
+  	struct rb_node	rbn;  // 红黑树节点
+    struct list_head 	rdllink;	// 双向链表节点
+    struct epoll_filefd		ffd;	// 事件句柄信息
+    struct eventpoll	*ep;		// 所属的eventpoll
+    struct epoll_event	event;		//期待发生的事件类型
+};
+
+// 一些事件Flag
+/*
+EPOLLIN:  fd可读
+EPOLLOUT: fd可写
+EPOLLPRI: fd紧急可读
+EPOLLERR: fd error
+EPOLLET:  ET模式
+*/
+
+```
+
+所有添加到epoll中的事件都会与**设备(网卡)驱动程序**建立回调关系，即，每当事件发生时，会调用对应的回调函数(内核中对应为**ep_poll_callback**)，将发生的事件添加到rdlist双链表中（因此，内核中时间复杂度为O(1)）
 
 
 
@@ -80,7 +111,7 @@ Write Test:
 
 #### 四，Epoll与poll，select对比
 
-select：**无差别轮询**，当IO事件发生，将所有监听的fds传给内核，内核遍历完将可读fds返回给程序，时间复杂度为O(n)，还有fds从用户态copy到内核态的开销。基于数组，监听fd有大小限制
+select：**无差别轮询**，当IO事件发生，将所有监听的fds传给内核，内核遍历所有fds，并将标记有事件的fd，遍历完将所有fd返回给应用程序，应用程序需要遍历整个数组才能知道哪些fd发生了事件，时间复杂度为O(n)，还有fds从用户态copy到内核态的开销。基于数组，监听fd有大小限制。
 
 poll：与select无本质区别，但没有最大连接数限制，因其**基于链表存储**。
 
