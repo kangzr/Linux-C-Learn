@@ -1,0 +1,219 @@
+##### 设计思想
+
+采用**时间轮**方式；
+
+定时器结构分为两部分：1. 即将到来的定时器[0, 2^8-1]；2. 较为遥远的定时器，分四层结构，偏移量为2^6, Li : [2^(8+6x(i-1)), 2^(8+6xi)-1]
+
+即L1 : [2^8, 2^(8+6) -1], L2 : [2^(8+6), 2^(8+6x2)-1], L3 : [2^(8+6x2), 2^(8+6x3)-1]...结构如下
+
+```c
+#define TIME_NEAR_SHIFT 8
+#define TIME_NEAR (1 << TIME_NEAR_SHIFT)
+#define TIME_LEVEL_SHIFT 6
+#define TIME_LEVEL (1 << TIME_LEVEL_SHIFT)
+#define TIME_NEAR_MASK (TIME_NEAR-1)
+#define TIME_LEVEL_MASK (TIME_LEVEL-1)
+
+struct timer_node {
+	struct timer_node *next;
+    uint32_t expire;	//到期滴答数
+};
+    
+struct link_list {	// 定时器链表
+	struct timer_node head;
+    struct timer_node *tail;
+};
+struct timer {
+	struct link_list near[TIME_NEAR];  // 即将到来的定时器
+    struct link_list t[4][TIME_LEVEL]; // 相对较遥远的定时器
+    struct spinlock lock;
+    uint32_t time;
+    uint64_t starttime;
+    uint64_t current;
+    uint64_t current_point;
+};
+```
+
+##### 添加定时器
+
+```c
+// 
+int
+skynet_timeout(uint32_t handle, int time, int session) {
+    ...
+    struct timer_event event;
+    event.handle = handle;  // callback
+    eveng.session = session;
+    // 给time_node指针分配空间
+    timer_add(TI, &event, sizeof(event), time);
+    return session;
+}
+
+// 添加到定时器链表里，如果定时器的到期滴答数跟当前比较近(<2^8)，表示即将触发定时器添加到T->near数组里，否则根据差值大小添加到对应的T->T[i]中
+static void add_node(struct timer *T, struct timer_node *node) {
+    uint32_t time=node->expire;
+    uint32_t current_time=T->time;
+    // 将current_time和time的最后8位都置1(使其L0位相等)，比较高级别是否相等 
+    // 如果相等，则认为其属于L0
+    if((time|TIME_NEAR_MASK)==(current_time|TIME_NEAR_MASK)) {
+        link(&T->near[time&TIME_NEAR_MASK], node);
+    }else {
+        int i;
+        uint32_t mask=TIME_NEAR << TIME_LEVEL_SHIFT;
+        for (i = 0; i < 3; i++) {
+            if ((time|(mask-1))==(current_time|(mask-1))){
+                break;
+            }
+            mask << TIME_LEVEL_SHIFT;
+        }
+        // time >> (TIME_NEAR_SHIFT + i*TIME_LEVEL_SHIFT)  将Li层的所有bit移到最右侧
+        // & TIME_LEVEL_MASK, 求余得到桶号
+        link(&T->t[i][((time>>(TIME_NEAR_SHIFT + i*TIME_LEVEL_SHIFT)) & TIME_LEVEL_MASK)],node);
+    }
+}
+
+static void timer_add(struct timer *T, void 8arg, size_t sz, int time) {
+    struct timer_node *node = (struct timer_node *)skynet_malloc(sizeof(*node)+sz);
+    memcpy(node+1,arg,sz);
+    SPIN_LOCK(T);
+    node->expire=time+T->time;
+    add_node(T, node);
+    SPIN_UNLOCK(T);
+}
+```
+
+##### 驱动方式
+
+skynet启动时，会创建一个线程专门跑定时器，每帧(0.0025s)调用`skynet_updatetime()`
+
+```c
+// skynet_start.c
+static void * 
+thread_timer(void *p) {
+    struct monitor * m = p;
+    skynet_initthread(THREAD_TIMER);
+    for (;;) {
+        skynet_updatetime();  // 调用timer_update
+        skynet_socket_updatetime();
+        CHECK_ABORT
+        wakeup(m,m->count-1);
+        usleep(2500);  // 2500微秒 = 0.0025s
+        if (SIG) {
+            signal_hup();
+            SIG = 0;
+        }
+    }
+    ...
+}
+```
+
+每个定时器设置一个到期滴答数，与当前系统的滴答数(启动时为0，1滴答1滴答往后跳，1滴答==0.01s)比较得到差值interval;
+
+如果interval比较小(0 <= interval <= 2^8-1)，表示定时器即将到来，保存在第一部分前2^8个定时器链表中；否则找到属于第二部分对用的层级中。
+
+```c
+// skynet_timer.c
+
+static struct timer * TI = NULL;
+
+void 
+skynet_updatetime(void) {
+    ...
+    timer_update(TI);
+}
+
+static void
+timer_update(struct timer *T) {
+    SPIN_LOCK(T);
+    timer_execute(T);
+    timer_shift(T);
+    timer_execute(T);
+    SPIN_UNLOCK(T);
+}
+
+// 每帧从T->near中触发到期得定时器
+static inline void
+timer_execute(struct timer *T) {
+    int idx = T->time & TIME_NEAR_MASK;  // 保留T->time当前滴答数的低8位，取得NEAR数组得idx
+    while (T->near[idx].head.next) {
+        struct timer_node *current = link_clear(&T->near[idx]);
+        SPIN_UNLOCK(T);
+        // 将消息压入相应得服务
+        dispatch_list(current);
+        SPIN_LOCK(T);
+    }
+}
+
+// 每帧处理了触发定时器外，还需重新分配定时器所在区间(timer_shift)
+static void 
+move_list(struct timer *T, int level, int idx) {
+	struct timer_node *current = link_clear(&T->[level][idx]);
+    while(current) {
+        struct timer_node *temp = current->next;
+        add_node(T, current);
+        current=tmp;
+    }
+}
+
+/*
+当T->time的低8位不全为0时，不需要分配，所以每2^8个滴答数才有需要分配一次；
+
+当T->time的第9-14位不全为0时，重新分配T[0]等级，每2^8个滴答数分配一次，idx从1开始，每次分配+1；
+
+当T->time的第15-20位不全为0时，重新分配T[1]等级，每2^(8+6)个滴答数分配一次，idx从1开始，每次分配+1；
+
+当T->time的第21-26位不全为0时，重新分配T[2]等级，每2^(8+6+6)个滴答数分配一次，idx从1开始，每次分配+1；
+
+当T->time的第27-32位不全为0时，重新分配T[3]等级，每2^(8+6+6+6)个滴答数分配一次，idx从1开始，每次分配+1；
+*/
+static void
+timer_shift(struct timer *T) {
+    int mask = TIME_NEAR;
+    uint32_t ct = ++T->time;
+    if (ct == 0){
+        move_list(T, 3, 0);
+    } else {
+        uint32_t time = ct >> TIME_NEAR_SHIFT;
+        int i = 0;
+        // T->time得低8位不全为0时，不需要分配
+        while ((ct & (mask - 1)) == 0) {
+            // 分配T->t中某等级
+            int idx = time & TIME_LEVEL_MASK;
+            if (idx != 0) {
+                move_list(T, i, idx);
+                break;
+            }
+            mask <<= TIME_LEVEL_SHIFT;
+            time >>= TIME_LEVEL_SHIFT;
+            ++i;
+        }
+    }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

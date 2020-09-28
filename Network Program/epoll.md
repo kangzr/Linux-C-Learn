@@ -14,7 +14,7 @@ Epoll(event poll)是IO管理组件，用来取代**IO多路复用**函数poll和
 // epoll对应的结构
 struct eventpool {
     ...
-	struct rb_root  rbr;  // 红黑树根节点，存储所有通过epoll_ctl添加进来的fd
+	struct rb_root_cached  rbr;  // 红黑树根节点，存储所有通过epoll_ctl添加进来的fd
     struct list_head rdlist; // 双链表存放有事件触发的fd，通过epoll_wait返回给用户
     ...
 }
