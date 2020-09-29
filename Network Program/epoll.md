@@ -123,3 +123,7 @@ epoll: 时间复杂度为O(1)。一旦有fd就绪，内核采用类似callback�
 
 - 单线程epoll：redis（为何这么快？1. redis纯内存操作，2 只有一个epoll管理，没有多线程加锁以及切换带来的开销）
 - 多进程epoll：nginx
+
+
+
+Redis的IO多路复用机制包含：select, epoll, evport, kqueue
