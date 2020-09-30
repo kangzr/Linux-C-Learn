@@ -2,9 +2,12 @@
 
 采用**时间轮**方式；
 
-定时器结构分为两部分：1. 即将到来的定时器[0, 2^8-1]；2. 较为遥远的定时器，分四层结构，偏移位为6, Li : [2^(8+6x(i-1)), 2^(8+6xi)-1]
+定时器结构`struct timer`中time为32位无符号整数， 记录时间片对应数组`near[256]` (即将到来的定时器)和 `t[4][64]`(较为遥远的定时器)
 
-即L1 : [2^8, 2^(8+6) -1], L2 : [2^(8+6), 2^(8+6x2)-1], L3 : [2^(8+6x2), 2^(8+6x3)-1]...结构如下
+| t[3]                      | t[2]                      | t[1]                    | t[0]               | near        |
+| ------------------------- | ------------------------- | ----------------------- | ------------------ | ----------- |
+| 26-32位                   | 20-26位                   | 14-20位                 | 8-14位             | 0-8位       |
+| `[2^(8+6x3),2^(8+6x4)-1]` | `[2^(8+6x2),2^(8+6x3)-1]` | `[2^(8+6),2^(8+6x2)-1]` | `[2^8,2^(8+6) -1]` | `[0,2^8-1]` |
 
 ```c
 #define TIME_NEAR_SHIFT 8
@@ -28,7 +31,7 @@ struct timer {
 	struct link_list near[TIME_NEAR];  // 即将到来的定时器
     struct link_list t[4][TIME_LEVEL]; // 相对较遥远的定时器
     struct spinlock lock;
-    uint32_t time;
+    uint32_t time;		// 记录当前滴答数
     uint64_t starttime;
     uint64_t current;
     uint64_t current_point;
@@ -49,7 +52,7 @@ skynet_start(struct skynet_config * config) {
 // skynet_timer.c
 void
 skynet_timer_init(void) {
-    // 创建全局TI
+    // 创建全局timer结构 TI
     TI  = timer_create_timer();
     uint32_t current = 0;
     systime(&TI->starttime, &current);
@@ -116,17 +119,19 @@ static void add_node(struct timer *T, struct timer_node *node) {
     // 将current_time和time的最后8位都置1(让near层位相等)，比较高位是否相等(后四层) 
     // 如果相等，则认为其属于near层，然后根据idx，将node添加到对应位置的定时器链表(link_list)中
     if((time|TIME_NEAR_MASK)==(current_time|TIME_NEAR_MASK)) {
+        // 即time - current_time < 256
         link(&T->near[time&TIME_NEAR_MASK], node);
     }else {
         int i;
         uint32_t mask=TIME_NEAR << TIME_LEVEL_SHIFT;
         for (i = 0; i < 3; i++) {
+            // 获取time再T->t中的索引
             if ((time|(mask-1))==(current_time|(mask-1))){
                 break;
             }
             mask << TIME_LEVEL_SHIFT;
         }
-        // time >> (TIME_NEAR_SHIFT + i*TIME_LEVEL_SHIFT)  将Li层的所有bit移到最右侧
+        // time >> (TIME_NEAR_SHIFT + i*TIME_LEVEL_SHIFT)  将t[0]层的所有bit移到最右侧
         // & TIME_LEVEL_MASK, 求余得到对应idx
         link(&T->t[i][((time>>(TIME_NEAR_SHIFT + i*TIME_LEVEL_SHIFT)) & TIME_LEVEL_MASK)],node);
     }
@@ -166,7 +171,7 @@ thread_timer(void *p) {
 }
 ```
 
-每个定时器设置一个到期滴答数，与当前系统的滴答数(启动时为0，1滴答1滴答往后跳，1滴答==0.01s ？？？)比较得到差值interval;
+每个定时器设置一个到期滴答数，与当前系统的滴答数(启动时为0，1滴答1滴答往后跳，1滴答==0.01s ) 比较得到差值interval;
 
 如果interval比较小(0 <= interval <= 2^8-1)，表示定时器即将到来，保存在第一部分前2^8个定时器链表中；否则找到属于第二部分对用的层级中。
 
@@ -181,6 +186,7 @@ skynet_updatetime(void) {
     uint32_t diff = (uint32_t)(cp - TI->current_point); 
     TI->current_point = cp;
     TI->current += diff;
+    // diff单位为0.01s
     for (i = 0; i < diff; i++){
         timer_update(TI);        
     }
@@ -189,8 +195,8 @@ skynet_updatetime(void) {
 static void
 timer_update(struct timer *T) {
     SPIN_LOCK(T);
-    timer_execute(T);
-    timer_shift(T);
+    timer_execute(T);	// 检查T->near是否位空，有就处理到期定时器
+    timer_shift(T);  // 时间片time++，移动高24位的链表
     timer_execute(T);
     SPIN_UNLOCK(T);
 }
@@ -198,12 +204,12 @@ timer_update(struct timer *T) {
 // 每帧从T->near中触发到期得定时器
 static inline void
 timer_execute(struct timer *T) {
-    int idx = T->time & TIME_NEAR_MASK;  // 保留T->time当前滴答数的低8位，取得NEAR数组得idx
+    int idx = T->time & TIME_NEAR_MASK;  // 保留T->time当前滴答数的低8位，取得NEAR数组得idx(到期定时器链表)
     while (T->near[idx].head.next) {
         // 清除对应idx的定时器链表，并返回链表信息
         struct timer_node *current = link_clear(&T->near[idx]);
         SPIN_UNLOCK(T);
-        // 处理current链表中的定时器信息
+        // 处理current链表中各节点定时器信息
         dispatch_list(current);
         SPIN_LOCK(T);
     }
@@ -238,22 +244,25 @@ dispatch_list(struct timer_node *current) {
 
 当T->time的第27-32位不全为0时，重新分配T[3]等级，每2^(8+6+6+6)个滴答数分配一次，idx从1开始，每次分配+1；
 */
+
+// 将高24位对应的4个6位的数组中的各个元素的链表往低位移
 static void
 timer_shift(struct timer *T) {
     int mask = TIME_NEAR;
-    uint32_t ct = ++T->time;
+    uint32_t ct = ++T->time;  // 每0.01s加1
     if (ct == 0){
-        // 将第4层，idx为0的定时器链表，删掉并重新add_node
+        // 溢出，将t[3][0]链表取出，并重新add_node，实现位移操作
         move_list(T, 3, 0);
     } else {
         uint32_t time = ct >> TIME_NEAR_SHIFT;
         int i = 0;
-        // T->time得低8位不全为0时，不需要分配
+        // T->time得低8位不全为0时，即低8位没有溢出，则不需要分配
         // 即每2^8个滴答(2.56s)才需要分配一次
         while ((ct & (mask - 1)) == 0) {
             // 分配T->t中某等级
             int idx = time & TIME_LEVEL_MASK;
             if (idx != 0) {
+                //将t[i][idx]链表取出，并重新add_node，实现移位
                 move_list(T, i, idx);
                 break;
             }
