@@ -1,4 +1,4 @@
-**为何会出现IO多路复用？**
+### **为何会出现IO多路复用？**
 
 recv接口会阻塞直到有数据可读，单线程会导致主线程被阻塞，即没有数据到来整个程序永远锁死。当然可以通过多线程解决，还是效率低，扩展性差。
 
@@ -374,7 +374,82 @@ epoll_ctl(epfd, EPOLL_CTL_MOD, fd1, &ev);
 int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout);
 ```
 
-#### 3. epoll的LT和ET模式
+#### 3. example
+
+```c
+    int epoll_fd = epoll_create(EPOLL_SIZE);
+    struct epoll_event ev, events[EPOLL_SIZE] = {0};
+
+    ev.events = EPOLLIN;  // 默认LT
+    ev.data.fd = sockfd;
+    // 把sockfd带着ev加入到epoll_fd中(红黑树)
+    // sockfd为key，ev为value
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sockfd, &ev);
+
+    while (1) {
+		// nready 就绪fd数量，就绪fd存储再events中
+        int nready = epoll_wait(epoll_fd, events, EPOLL_SIZE, -1);
+        if (nready == -1) {
+            printf("epoll_wait\n");
+            break;
+            // continue
+        }
+
+        int i = 0;
+        // 遍历就绪队列nready;
+        for (i = 0;i < nready;i ++) {
+            if (events[i].data.fd == sockfd) {
+
+                struct sockaddr_in client_addr;
+                memset(&client_addr, 0, sizeof(struct sockaddr_in));
+                socklen_t client_len = sizeof(client_addr);
+
+                int clientfd = accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
+                if (clientfd <= 0) continue;
+
+                char str[INET_ADDRSTRLEN] = {0};
+                printf("recvived from %s at port %d, sockfd:%d, clientfd:%d\n", inet_ntop(AF_INET, &client_addr.sin_addr, str, sizeof(str)),
+                    ntohs(client_addr.sin_port), sockfd, clientfd);
+
+                ev.events = EPOLLIN | EPOLLET;
+                ev.data.fd = clientfd;
+                // 将clientfd 加入到epoll_fd中
+                epoll_ctl(epoll_fd, EPOLL_CTL_ADD, clientfd, &ev);
+            } else {
+                int clientfd = events[i].data.fd;
+
+                char buffer[BUFFER_LENGTH] = {0};
+                int ret = recv(clientfd, buffer, BUFFER_LENGTH, 0);
+                if (ret < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        printf("read all data");
+                    }
+
+                    close(clientfd);
+
+                    ev.events = EPOLLIN | EPOLLET;
+                    ev.data.fd = clientfd;
+                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, clientfd, &ev);
+                } else if (ret == 0) {
+                    printf(" disconnect %d\n", clientfd);
+                    close(clientfd);
+
+                    ev.events = EPOLLIN | EPOLLET;
+                    ev.data.fd = clientfd;
+                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, clientfd, &ev);
+
+                    break;
+                } else {
+                    printf("Recv: %s, %d Bytes\n", buffer, ret);
+                }
+
+            }
+        }
+```
+
+
+
+#### 4. epoll的LT和ET模式
 
 假定recvbuff中有数据为1， 无数据为0；
 
@@ -426,7 +501,7 @@ Write Test:
 
 客户端为ET模式：只写入八字节，`epoll_wait`只被唤醒一次。可能导致输入数据丢失。
 
-#### 4. epoll应用场景
+#### 5. epoll应用场景
 
 - 单线程epoll：redis（**为何这么快**？1. redis纯内存操作，2 只有一个epoll管理，没有多线程加锁以及切换带来的开销）
 - 多进程epoll：nginx
