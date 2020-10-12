@@ -15,7 +15,7 @@ reactor + 线程池
 
 ### libevent源码  ---> reactor
 
-### redis源码 -->reactor
+### redis源码 -->reactor   ae.h ae.c
 
 
 
@@ -161,11 +161,14 @@ epoll 突破c10k
 
 
 
-select/poll/epoll --> reactor --> 并发量
+网络服务专题部分主要学
 
-​	http
+select/poll/epoll --> reactor --> 并发量测试
 
+​	**http代码？**
 
+1. 阅读和实现epoll
+2. 阅读redis 和libevent reactor实现原理
 
 
 
