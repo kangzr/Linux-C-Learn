@@ -228,7 +228,9 @@ MMS：TCP报文段中数据字段的最大长度，不是TCP报文总长度。
 
 
 
-**TCP三次握手，四次挥手以及状态机制，滑动窗口，流量控制，拥塞控制，慢启动机制(c = 2 ^ c)。**
+
+
+**滑动窗口**
 
 动态滑动窗口包含三部分数据：1. 已经发送且确认；2. 已经发送还未确认；3. 等待发送
 
@@ -247,6 +249,8 @@ FIN包发送失败，对方没有收到ACK，会超时重传。
 **TCP状态图**
 
 ![tcpstate](/Users/zhongrunkang/Desktop/Linux-C-Learn/pic/tcp_state.png)
+
+**TCP三次握手**
 
 **TCP四次挥手：**
 
@@ -305,6 +309,18 @@ echo "1" > /proc/sys/net/ipv4/tcp_tw_recyle		# 回收
 网络编程接口：socket，listen，accept，send，recv，close，connect，bind。
 
 其中具有send功能的：connect，close，send
+
+
+
+
+
+**滑动窗口，流量控制，拥塞控制，慢启动机制(c = 2 ^ c)。**
+
+
+
+
+
+
 
 #### 三，用户态协议栈Netmap
 
