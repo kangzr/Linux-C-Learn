@@ -501,11 +501,46 @@ Write Test:
 
 客户端为ET模式：只写入八字节，`epoll_wait`只被唤醒一次。可能导致输入数据丢失。
 
+#### 4. 如何手动实现epoll
+
+- 数据结构
+  红黑树+就绪队列，两者共用节点。
+
+- 哪些地方需要加锁：
+
+  - rbtree：mutex
+  - 就绪队列queue：spinlock（操作比较少，等待时间<线程切换时间，则选择spinelock）
+  - epoll_wait：条件变量cond+mutex
+
+- 如何检测IO数据发生了变化？即tcp协议栈如何回调到epoll
+
+  数据流：
+
+  ```mermaid
+  graph LR;
+  网卡-->skbuff-->tcp协议栈内核中-->epoll
+  ```
+
+  
+
+  - 三次握手成功后，fd加入accept队列，会回调epoll
+  - send发送数据后，会回调
+  - send buffer清空后，会回调
+  - 发送端close，会回调
+
+- 协议栈回调epoll需要传哪些参数？
+
+  - fd
+  - status，可读还是可写
+  - eventpoll，（epoll底层数据结构，确定调用哪个epoll）
+
 #### 5. epoll应用场景
 
 - 单线程epoll：redis（**为何这么快**？1. redis纯内存操作，2 只有一个epoll管理，没有多线程加锁以及切换带来的开销）
 - 多进程epoll：nginx
 - Redis的IO多路复用机制包含：select, epoll, evport, kqueue
+
+
 
 
 
