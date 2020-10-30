@@ -371,7 +371,7 @@ void TimerShift(TimeWheel &tw) {
 
 `libuv`采用最小堆来实现
 
-
+`nginx`采用红黑树实现
 
 
 
