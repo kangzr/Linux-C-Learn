@@ -269,6 +269,60 @@ struct ngx_connection_s {
 
 ```c
 // 各种宏实现链表操作
+// 初始化头节点，把两个指针都指向自身
+#define ngx_queue_init(q)										\
+	(q)->prev = q;											   \
+	(q)->next = q											   
+
+// 检查头节点的前驱指针，判断是否为空队列
+#define ngx_queue_empty(h)				\
+	(h == (h)->prev)
+
+// 向队列的头插入数据节点
+#define ngx_queue_insert_head(h, x)			\
+	(x)->next = (h)->next;				   \
+	(x)->next->prev = x;					   \
+	(x)->prev = h;						  \
+	(h)->next = x;
+
+// 向队列的尾插入数据节点
+#define ngx_queue_insert_tail(h, x)			\
+	(x)->prev = (h)->prev;				   \
+	(x)->pre->next = x;					   \
+	(x)->next = h;						  \
+	(h)->prev = x
+
+// 直到遇到头节点
+#define ngx_queue_head(h)				   \
+	(h)->next
+
+// 直到遇到尾节点
+#define ngx_queue_last(h)				  \
+	(h)->prev
+
+// 头节点当作哨兵
+#define ngx_queue_sentinel(h)			  \
+	(h)
+
+// 后继节点
+#define ngx_queue_next(q)				\
+	(q)->next
+
+// 前驱
+#define ngx_queue_prev(q)				\
+	(q)->prev
+
+
+// 删除当前节点
+#define ngx_queue_remove(x)				\
+	(x)->next->prev = (x)->prev;		\
+	(x)->prev->next = (x)->next;		\
+	(x)->prev = NULL;				   \
+	(x)->next = NULL
+
+
+
+
 ```
 
 
