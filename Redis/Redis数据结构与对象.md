@@ -186,14 +186,14 @@ Redis链表实现的特性：
 ```c
 // dict.h/dict.c
 typedef struct dictht {
-    dictEntry **table;  // 哈希表数组
-    unsigned long size;  // 哈希表大小
+    dictEntry **table;  // 哈希表数组 数组+链表
+    unsigned long size;  // 哈希表大小 默认4
     unsigned long sizemask;  // 哈希表大小掩码，用于计算索引值，总是等于size - 1 和hash值一起确定一个key放到table哪个索引上
-    unsigned long used;  // 该哈希表已有节点的数量
+    unsigned long used;  // 该哈希表已有节点的数量 持久化时 used可能大于size
 }dictht;
 ```
 
-
+- table属性是一个数组，
 
 将一个新的键值对添加到字典里面时，需要根据键值对的键计算出哈希值和索引值，
 
