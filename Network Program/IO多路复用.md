@@ -323,6 +323,19 @@ struct eventpool {
     ...
 }
 
+typdef union epoll_data
+{
+    void *ptr;
+    int fd;
+    uint32_t u32;
+    uint64_t u64;
+}epoll_data_t;
+
+struct epoll_event {
+    uint32_t events;  // epollin epollout epollerr epollhup
+    epoll_data_t data; // 用户变量，寻找映射关系
+};
+
 // 每个epoll中的事件(fd)的结构
 struct epitem {
   	struct rb_node	rbn;  // 红黑树节点
@@ -371,6 +384,7 @@ epoll_ctl(epfd, EPOLL_CTL_MOD, fd1, &ev);
 // 1. 有进程的signal信号到达 2. 最近一次epoll_wait被调用起，经过timeout ms 3. ready list 不为空
 // timeout == -1:
 // 1. 有进程的signal信号到达 2. ready list不为空
+// 将内核中就绪的事件copy到events中
 int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout);
 ```
 
