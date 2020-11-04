@@ -1,0 +1,114 @@
+### Skynet模块
+
+**初始化**
+
+`skynet_start.c`中`skynet_start`函数调用`skynet_module.c`中的`skynet_module_init`函数进行初始化，
+
+`skynet_module_init`函数参数默认动态库路径为`./cservice/?.so`,
+
+动态库的信息保存在全局变量M中
+
+```c
+//初始化需要加载的动态库的路径
+static struct modules * M = NULL;
+void skynet_module_init(const char *path) {
+    struct modules *m = skynet_malloc(sizeof(*m));
+    m->count = 0;
+    m->path = skynet_strdup(path);    //copy一份path
+
+    SPIN_INIT(m)
+
+    M = m;
+}
+
+// modules结构体
+struct modules {
+    int count;                                    //记录已经加载的动态库的数量
+    struct spinlock lock;                        //锁
+    const char * path;                            //需要加载的动态库的路径
+    struct skynet_module m[MAX_MODULE_TYPE];    //加载的动态库的信息，最多可以加载32个
+};
+
+struct skynet_module {
+    const char * name;            //动态库名
+    void * module;                //打开的库文件指针
+    skynet_dl_create create;    //存储动态连接库中以库文件名_create的API函数指针
+    skynet_dl_init init;        //存储动态连接库中以库文件名_init的API函数指针
+    skynet_dl_release release;    //存储动态连接库中以库文件名_release的API函数指针
+    skynet_dl_signal signal;    //存储动态连接库中以库文件名_signal的API函数指针
+};
+```
+
+**查询和添加动态库**
+
+在新建服务函数skynet_context_new中最先调用的为查询或添加相应服务名的动态库`skynet_module_query`
+
+- 调用_query函数查找已经加载的动态库信息中是否存在，存在则返回相应的库信息
+- 如果不存在就检测已经加载的动态库是否达到上限值，如果没有达到上限值则调用_try_open函数打开相应的动态库
+- 打开成功则将其动态库引用存入全局变量M中，并调用`open_sym`函数将指定的`_create`、`_init`、`_release`、`_signal`函数指针存入M中
+
+```c
+//查询指定文件名的动态连接库信息
+struct skynet_module * skynet_module_query(const char * name) {
+    struct skynet_module * result = _query(name);        //查找相应名称的动态库是否已经加载
+    if (result)
+        return result;
+
+    SPIN_LOCK(M)
+
+    result = _query(name); // double check    查找相应名称的动态库是否已经加载
+
+    if (result == NULL && M->count < MAX_MODULE_TYPE) {        //检测是否加载以及加载的数量是否达到上线值
+        int index = M->count;
+        void * dl = _try_open(M,name);
+        if (dl) {
+            M->m[index].name = name;    //将加载成功的动态库名保存到数组
+            M->m[index].module = dl;    //将加载成功的动态库库引用保存到数组
+
+            if (open_sym(&M->m[index]) == 0) {    //获得动态库中指定的_create、_init、_release、_signal函数指针
+                M->m[index].name = skynet_strdup(name);    //拷贝动态库名
+                M->count ++;    //已经加载的动态库数量加1
+                result = &M->m[index];    //返回加载的动态库信息
+            }
+        }
+    }
+
+    SPIN_UNLOCK(M)
+
+    return result;
+}
+```
+
+
+
+在新建服务函数skynet_context_new中获得服务的动态库信息后调用skynet_module.c文件中skynet_module_instance_create函数创建服务的实例该函数实际调用了对应服务名的动态库中的“动态库名+_create的函数”
+
+```c
+//调用相应动态库的库文件名_create的API函数
+void * skynet_module_instance_create(struct skynet_module *m) {
+    if (m->create) {
+        return m->create();
+    } else {
+        return (void *)(intptr_t)(~0);
+    }
+}
+
+// 函数skynet_context_new中调用skynet_module_instance_init动态库实例的初始化函数
+// 调用相应动态库的库文件名_init的API函数
+int skynet_module_instance_init(struct skynet_module *m, void * inst, struct skynet_context *ctx, const char * parm) {
+    return m->init(inst, ctx, parm);
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

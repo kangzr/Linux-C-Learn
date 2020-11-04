@@ -1,0 +1,154 @@
+### Skynet服务管理
+
+skynet为事件驱动运行，由socket和timeout两个线程驱动
+
+
+
+每个服务通过一个32位的无符号整形标识，最高8位表示集群ID(已不推荐使用), 剩下24位服务ID；
+
+```c
+struct handle_name {
+  	char * name;	// 服务名字
+    uint32_t handle;	// 低24位为服务号
+};
+```
+
+- 全局的所有服务信息通过H进行存储
+- 服务句柄handle：服务的唯一标识，对应一个skynet_context，所有的skynet_context存放在handle_storage中
+
+```c
+// skynet_handle.c
+struct handle_storage {
+	struct rwlock lock;
+    uint32_t harbor;		//集群ID
+    uint32_t handle_index;	// 当前句柄索引
+    int slot_size;			// 存储服务信息数组的大小
+    struct skynet_context ** slot;	// skynet_context数组
+    ...
+};
+
+// 全局所有消息存储在H中
+static struct handle_storage *H = NULL;
+```
+
+- 服务模块(信息存储结构体)skynet_context: 一个服务对应一个skynet_context，可理解为一个隔离环境(类似进程)；
+
+  该文件实现了服务的基本逻辑功能，
+
+  ```c
+  //每个服务的信息存储结构体
+  struct skynet_context {
+      void * instance;                    //动态连接库的实例指针    即服务的实例指针
+      struct skynet_module * mod;            //指定已加载的动态库信息
+      void * cb_ud;                        //服务回调的对象
+      skynet_cb cb;                        //服务的回调函数
+      struct message_queue *queue;        //服务队列
+      FILE * logfile;                        //日志输出的文件
+      uint64_t cpu_cost;    // in microsec    //消耗CUP时间    精确到微秒
+      uint64_t cpu_start;    // in microsec    //本线程到当前代码系统CPU花费的时间
+      char result[32];                    //存储相应指令名执行的函数返回结果
+      uint32_t handle;                    //存储带有节点号的服务号
+      int session_id;                        //用于为消息分配一个session
+      int ref;                            //服务信息的引用计数
+      int message_count;                    //记录处理消息的数量
+      bool init;                            //服务是否初始化
+      bool endless;                        //标记服务是否陷入死循环
+      bool profile;                        //是否开启CPU耗时监测
+  
+      CHECKCALLING_DECL                    //锁
+  };
+  
+  //全局服务相关的信息
+  struct skynet_node {
+      int total;                    //记录总的服务的数量
+      int init;                    //标记全局服务信息是否初始化
+      uint32_t monitor_exit;        //检测将要退出的服务
+      pthread_key_t handle_key;    //与线程相关联的handle
+      bool profile;    //是否开启CPU耗时监测 默认开启
+  };
+  ```
+
+- 初始化服务信息：首先，初始化全局服务信息，最先初始化的为全局服务相关的信息，在main函数中调用skynet_globalinit函数，在skynet_start.c文件中的skynet_start函数调用skynet_harbor.c文件中的skynet_harbor_init函数对节点信息进行初始化，skynet_start函数调用skynet_handle.c文件中的skynet_handle_init函数对全局服务信息进行初始化。
+
+- 新建服务：通过`skynet_context_new`创建，传入两个参数第一个参数为服务的名称，第二个为服务初始化时传入的参数；
+
+  - 调用`skynet_module_query`函数获得相应服务名称的动态链接库信息
+  - 调用`skynet_module_instance_create`创建服务实例，而后对服务的信息进行初始化
+  - 调用`skynet_module_instance_init`函数初始化相应的服务实例
+  - 调用skynet_globalmq_push函数将该服务添加到全局队列中
+
+  ```c
+  //新建一个服务信息
+  struct skynet_context * skynet_context_new(const char * name, const char *param) {
+      struct skynet_module * mod = skynet_module_query(name);        //获得指定文件名的动态连接库信息
+  
+      if (mod == NULL)
+          return NULL;
+  
+      void *inst = skynet_module_instance_create(mod);    //调用相应动态库的库文件名_create的API函数
+      if (inst == NULL)
+          return NULL;
+      // 每一个服务都有一个独立的lua虚拟机(skynet_context)
+      struct skynet_context * ctx = skynet_malloc(sizeof(*ctx));
+      CHECKCALLING_INIT(ctx)
+  
+      ctx->mod = mod;                //服务对应的动态库信息
+      ctx->instance = inst;        //对应的动态库_create的函数返回的指针
+      ctx->ref = 2;                //服务信息的引用计数，初始化完后会减1
+      ctx->cb = NULL;                //服务的回调函数
+      ctx->cb_ud = NULL;            //服务回调的对象
+      ctx->session_id = 0;        //用于为消息分配一个session
+      ctx->logfile = NULL;        //日志输出的文件
+  
+      ctx->init = false;            //服务是否初始化
+      ctx->endless = false;        //服务是否陷入死循环
+  
+      ctx->cpu_cost = 0;            //消耗CUP时间    精确到微秒
+      ctx->cpu_start = 0;            //本线程到当前代码系统CPU花费的时间
+      ctx->message_count = 0;        //记录处理消息的数量
+      ctx->profile = G_NODE.profile;    //是否开启CPU耗时监测
+      // Should set to 0 first to avoid skynet_handle_retireall get an uninitialized handle
+      ctx->handle = 0;    //存储带有节点号的服务号
+      ctx->handle = skynet_handle_register(ctx);    //将服务信息存储到全局服务信息中，并产生一个定位服务的编号
+      struct message_queue * queue = ctx->queue = skynet_mq_create(ctx->handle);        //创建服务队列
+      // init function maybe use ctx->handle, so it must init at last
+      context_inc();    //服务总数加1
+  
+      CHECKCALLING_BEGIN(ctx)        //尝试获得锁
+      int r = skynet_module_instance_init(mod, inst, ctx, param);        //调用相应动态库的库文件名_init的API函数
+      CHECKCALLING_END(ctx)        //释放锁
+      if (r == 0) {
+          struct skynet_context * ret = skynet_context_release(ctx);    //服务信息的引用计数减1
+          if (ret) {
+              ctx->init = true;        //标记服务初始化成功
+          }
+          skynet_globalmq_push(queue);        //将服务队列添加到全局队列
+          if (ret) {
+              skynet_error(ret, "LAUNCH %s %s", name, param ? param : "");
+          }
+          return ret;
+      } else {
+          skynet_error(ctx, "FAILED launch %s", name);
+          uint32_t handle = ctx->handle;
+          skynet_context_release(ctx);        //递减服务信息的引用计数，如果计数为0则释放
+          skynet_handle_retire(handle);        //将指定的服务信息从全局的服务信息数字中剔除掉
+          struct drop_t d = { handle };
+          skynet_mq_release(queue, drop_message, &d);        //将服务队列释放
+          return NULL;
+      }
+  }
+  ```
+
+- 消息队列message_queue：消息队列链表，一个服务对应一个消息队列，所有的消息队列链接起来构成全局消息队列
+
+
+
+##### 服务间消息通信
+
+每一个服务都有一个独立的lua虚拟机(skynet_context)，逻辑上服务之间相互隔离，在skynet中服务之间可以通过skynet的消息调度机制来完成通信。
+
+skynet中的服务基于actor模型设计出来，每个服务都可以接收消息、处理消息、发送应答消息
+
+每条skynet消息由6部分构成：消息类型，session，发起服务地址，接收服务地址，消息c指针，消息长度
+
+session能保证本服务中发出的消息是唯一的。消息于响应一一对应

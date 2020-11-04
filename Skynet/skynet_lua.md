@@ -98,7 +98,7 @@ local tab = {
 local cmd = "init"
 tab[cmd]()
 
--- 元表 可以实现c++中的类，虚表
+-- 元表 可以实现c++中的类，虚表；只有table和userdata对象有独自的元表
 setmetable(tab, {
     __index = function (t, k)
       print("no exist")
@@ -121,6 +121,78 @@ local signal = tab["signal"]
 ```
 
 lua 5.3中文文档
+
+
+
+lua虚拟机：1. 执行字节码；2.存储lua数据；3.gc
+
+c和lua通过虚拟栈进行沟通，虚拟栈中存放lua类型的值
+
+
+
+**c调lua** ，
+
+先函数入栈，再参数入栈；需要维护栈的平衡
+
+c创建虚拟机的同时，会创建一个主协程，也就是默认创建一个栈；
+
+栈跟协程绑定在一起，每个协程对应一个虚拟栈
+
+
+
+**lua调c**
+
+不需要维护虚拟栈的平衡，每次都创建一个新的栈
+
+
+
+**协程**
+
+为什么不能做csp模型，（go csp，并发实体时goroutine，同时可运行多个协程）
+
+而lua，同时只有一个协程在运行，
+
+
+
+**闭包**
+
+表现：函数内部调用函数外部变量
+
+实现：c的函数+上值
+
+lua中到处都是闭包
+
+所有的代码块/文件`.lua`都是匿名函数
+
+```lua
+local function iteration()
+    local i = 0
+    return function ()
+        i = i + 1
+        return i
+    end
+end
+
+
+```
+
+
+
+注册表
+
+预定义的表，用来保存任何c代码想保存的lua值
+
+
+
+功能进行拆分
+
+计算热点进行拆分
+
+retpack 与skynet.call一一对应
+
+
+
+
 
 
 
