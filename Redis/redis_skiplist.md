@@ -9,7 +9,7 @@
 - 跳表是逻辑有序的，节点除了存储树，还会存储一个score值，作为排序的依据
 - 查询效率：平均O(log(n))
 
-![skiplist](D:\MyGit\Linux-C-Learn\pic\skiplist.png)
+![skiplist](..\pic\skiplist.png)
 
 **数据结构**
 
