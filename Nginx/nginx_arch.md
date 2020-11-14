@@ -40,6 +40,14 @@ Nginx是一款多进程的软件，启动后，会产生一个master进程和N�
 
 
 
+1. 实现http模块，体会nginx一切皆模块，11个阶段，7个handler
+2. 实现http过滤器，content->log,     存在多个过滤器，一个过滤器就是一个文件
+3. 进程间通信机制：进程锁，共享内存，信号
+4. upstream模块，解决核心问题：上下游网速不一致问题。
+5. slab共享内存的封装（例：动态黑名单，共享内存中实现红黑树（红黑明单）
+6. 如果大家有lua基础，一定要学习openresty（动态web服务器）, nginx     + lua, lua-nginx module cosocket
+7. nginx异步事件机制+ lua     nginx redis mysql mongdb
+
 
 
 
