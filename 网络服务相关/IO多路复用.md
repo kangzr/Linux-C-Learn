@@ -1,4 +1,4 @@
-### **j为何会出现IO多路复用？**
+### **为何会出现IO多路复用？**
 
 recv接口会阻塞直到有数据可读，单线程会导致主线程被阻塞，即没有数据到来整个程序永远锁死。当然可以通过多线程解决，还是效率低，扩展性差。
 
@@ -61,7 +61,7 @@ FD_ISSET(int fd, fd_set *set);	// 测试set中的fd是否准备好， 测试某�
 
 1. select **最大可监控fd数**量由sizeof(fd_set)决定，因此**可监听端口受限**
 2. 需要由**两个fd_set结构**，一个用于**保存所有监听的fd**，另一个检测fd_set, 用于**记录哪些fd准备就绪**(由select将其传入内核，内核处理，将准备就绪的fd置为1)；select每次调用前必须将所监听的fds重新加载到检测fd_set中。
-3. 需要维护一个用来存放大量fd的数据结构，并且select需要将其从用户态copy到内核态，处理完后再存内核态copy到用户态，复制开销大
+3. 需要维护一个用来存放大量fd的数据结构，并且select需要将其从用户态copy到内核态，处理完后再copy内核态copy到用户态，复制开销大
 4. `select`无法知道哪些fd准备就绪。因此需要(轮询)遍历`fd_set`集合通过`FD_ISSET`来判断fd是否就绪。所以其**时间复杂度为O(n)**，当fd数量越多，效率越低。
 
 #### 2. example
@@ -306,7 +306,7 @@ struct pollfd {
 
 Epoll(event poll)是IO管理组件，用来取代**IO多路复用**函数poll和select。主要功能是监听多个file descriptor，并在有事件的时候通知应用程序，比传统的poll和select更加高效。
 
-内核(kernal)中有一个interest list（**红黑树**）存放所有的epoll fds，ready list存放有IO事件到来的epoll fds，通知应用程序去处理这些fd的IO事件。epoll实例(epoll_create创建)来监控我们fd列表。(**队列共用红黑树节点**?)
+内核(kernal)中有一个interest list（**红黑树**）存放所有的epoll fds，ready list存放有IO事件到来的epoll fds，通知应用程序去处理这些fd的IO事件。epoll实例(epoll_create创建)来监控我们fd列表。(**队列共用红黑树节点**)
 
 **数据结构：**
 
@@ -467,13 +467,9 @@ int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout
 
 假定recvbuff中有数据为1， 无数据为0；
 
-
-
 **水平触发LT(Level Trigger)：**
 
 一直触发； recvbuff 为 1 则一直触发，直到recvbuff为0
-
-
 
 **边缘触发ET(Edge Trigger)：**
 
@@ -514,6 +510,8 @@ Write Test:
 客户端为LT模式：一次写入八字节，分两次写完。(`epoll_wait`被唤醒两次)，读完数据后将EPOLLOUT从该fd移除。
 
 客户端为ET模式：只写入八字节，`epoll_wait`只被唤醒一次。可能导致输入数据丢失。
+
+
 
 #### 4. 如何手动实现epoll
 
@@ -564,7 +562,7 @@ select：**无差别轮询**，当IO事件发生，将所有监听的fds传给�
 
 poll：与select无本质区别，但没有最大连接数限制，因其**基于链表存储**。
 
-epoll: 时间复杂度为O(1)。一旦有fd就绪，内核采用类似callback机制激活该fd，epoll_wait边收到通知。**消息传递方式**：内核和用户空间共享一块内存mmap，减少copy开销。且没有最大并发连接数限制。
+epoll: 时间复杂度为O(1)。一旦有fd就绪，内核采用类似callback机制激活该fd，epoll_wait边收到通知。且没有最大并发连接数限制。
 
 
 

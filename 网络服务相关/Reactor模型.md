@@ -118,7 +118,7 @@ reactor + 线程池
 
 普通函数调用机制：程序调用某函数-->函数执行-->程序等待-->函数将结果和控制权返回给程序-->程序继续处理。
 
-Reactor模型一种事件驱动机制，应用程序不主动调用某个API处理，而是提供响应的接口并注册到Reactor上，如果相应事件发生，Reactor主动调用应用程序注册的接口，这些接口又称为回调函数。
+Reactor模型一种事件驱动机制，应用程序不主动调用某个API处理，**而是提供响应的接口并注册到Reactor上**，如果相应事件发生，Reactor主动调用应用程序注册的接口，这些接口又称为回调函数。
 
 将所有要处理的IO事件注册到一个中心IO多路复用器上，同时主线程/进程阻塞在**多路复用器**上。一旦有IO事件到来或准备就绪，多路复用器返回并将事件先注册到相应IO事件分发到对应的处理中。
 
@@ -186,7 +186,7 @@ int reactor_addlistener(struct reactor *r, int sockfd, CALLBACK * acceptor) {
     if (r == NULL) return -1;
     if (r->events == NULL) return -1;
     set_event(&r->events[sockfd], sockfd, acceptor, r);
-    ad_event(r->epfd, EPOLLIN, &r->events[sockfd]);
+    add_event(r->epfd, EPOLLIN, &r->events[sockfd]);
     return 0;
 }
 

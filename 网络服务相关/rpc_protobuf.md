@@ -268,7 +268,7 @@ key：tag << 3 | ware_type
 
 #### RPC底层原理Protobuf
 
-![protobuf_rpc](pic\protobuf_rpc.png)
+![protobuf_rpc](..\pic\protobuf_rpc.png)
 
 - protocol buffers 是一种语言无关、平台无关、可扩展的序列化结构数据的方法，它可用于（数据）通信协议、数据存储等
 - Protocol Buffers 是一种灵活，高效，自动化机制的结构数据序列化方法－可类比 XML，但是比 XML 更小（3 ~ 10倍）、更快（20 ~ 100倍）、更为简单。
