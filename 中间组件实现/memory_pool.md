@@ -1,10 +1,10 @@
-##### 1.  内存池原理，以及为何使用内存池
+### 内存池原理，以及为何使用内存池
 
 分配一整块内存备用，每次需要内存则从这里取，而不需要再次直接向系统申请。
 
 避免频繁的对内存进行`malloc/free`，减少内存碎片，防止内存泄漏
 
-##### 2.  实现方法一
+#### 一.  实现方法一
 
 参照nginx内存池
 
@@ -53,7 +53,7 @@ void *mp_nalloc(struct mp_pool_s *pool, size_t size);  // 不对齐？
 void *mp_calloc(struct mp_pool_s *pool, size_t size);  // 分配内存，并初始化为0
 void mp_free(struct mp_pool_s *pool, void *p); // 释放p节点内存
 
-// posix提供的malloc,calloc,realloc返回的地址都是对齐的，32位8字节, 64位16字节，不可调；所以由了posix_memalign
+// posix提供的malloc,calloc,realloc返回的地址都是对齐的，32位8字节, 64位16字节，不可调；所以有了posix_memalign
 // 
 // 介绍一个函数posix_memalign，类似malloc，分配的内存由free释放
 // int posix_memalign(void**memptr, size_t alignment, size_t size)
@@ -191,7 +191,7 @@ void *mp_alloc(struct mp_pool_s *pool, size_t size) {
         // 内存池中所有节点内存都不以满足分配size内存，需要再次分配一个block
         return mp_alloc_block(pool, size);
     }
-    return mp_alloc_largepool, size);
+    return mp_alloc_large(pool, size);
 }
 
 // 分配内存并初始化
@@ -218,7 +218,7 @@ void mp_free(struct mp_pool_s *pool, void *p) {
 
 
 
-##### 3.  Nginx内存池
+#### 二.  Nginx内存池
 
 **内存结构：**
 
@@ -286,7 +286,7 @@ ngx_int_t ngx_pfree(ngx_pool_t *pool, void *p);
 
 
 
-##### 4.  Limux内核内存管理之伙伴算法
+#### 三.  Limux内核内存管理之伙伴算法
 
 linux内核内存管理就采用伙伴算法，首先从分配内存和释放内存来简单介绍一下伙伴算法的原理
 
@@ -304,7 +304,7 @@ linux内核内存管理就采用伙伴算法，首先从分配内存和释放内
 
 **具体说明：**
 
-![buddy_m](D:\MyGit\Linux-C-Learn\pic\buddy_m.png)
+![buddy_m](..\pic\buddy_m.png)
 
 上图为一个2 ^ 4 * 64K = 1024K的内存块，最小可分配内存块为64K，即最多可分成16个64K的块
 
@@ -539,7 +539,9 @@ buddy_free(struct buddy * self, int offset) {
 }
 ```
 
-##### 5.python内存管理
+
+
+#### 四. python内存管理
 
 内存池，对象池，GC
 
@@ -574,7 +576,7 @@ struct pool_header {
 
 python使用一个数组usedpools来管理使用中的pool
 
-![python_pool](D:\MyGit\Linux-C-Learn\pic\python_pool.png)
+![python_pool](..\pic\python_pool.png)
 
 **Arena**
 
@@ -639,7 +641,9 @@ python中会存在多个arena，这些arena通过一个数组arenas来统一管�
 
 
 
+#### 五. ringbuffer
 
+[ringbuffer](https://blog.csdn.net/wangqingchuan92/article/details/106070527)
 
 
 

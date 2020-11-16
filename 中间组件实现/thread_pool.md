@@ -1,8 +1,12 @@
 #### 一. 线程池的实现
 
+**目的：**
+
+减少线程频繁创建和销毁带来的开销，维持一定合理数量的线程。（连接池：维持连接的缓存池，尽量重用已有的连接，减少创建和关闭连接的频率；线程池和连接池在一定程度上缓解了频繁调用IO接口带来的资源占用。）
+
 **基本思想：**
 
-线程池中使用两个链表分别管理创建好的工作线程和需要处理的工作任务，如果线程池中暂时没有工作任务，线程会进入条件变量的等待挂起之状态，当有任务生成时，会通过条件变量唤醒工作线程进行处理。
+线程池中使用两个链表分别管理创建好的工作线程和需要处理的工作任务，如果线程池中暂时没有工作任务，线程会进入条件变量的等待挂起状态，当有任务生成时，会通过条件变量 唤醒工作线程进行处理。
 
 
 
@@ -122,7 +126,7 @@ int terminate_threads(thread_pool *pool) {
     for(t = pool->threads; t != NULL; t = t->next) {
         t->terminate = 1;
     }
-    pthread_mutex_lock(&pool->jobs);
+    pthread_mutex_lock(&pool->mutex);
     pool->jobs = NULL;
     pool->threads = NULL;
     pthread_cond_broadcast(&pool->cond);

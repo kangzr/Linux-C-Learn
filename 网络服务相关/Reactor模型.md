@@ -73,7 +73,7 @@ epoll 突破c10k
 
 
 1. 阅读和实现epoll
-2. 阅读redis，**libevent**，libev，libuv的 reactor实现原理，
+2. 阅读redis，**libevent**，**libev**，libuv的 reactor实现原理，
 
 reactor + 线程池
 
@@ -85,9 +85,7 @@ reactor + 线程池
 
 
 
-
-
-
+### 网络IO管理
 
 
 
@@ -97,6 +95,46 @@ reactor + 线程池
 - 将数据从内核copy到进程/线程中。
 
 因为以上两个阶段各有不同，出现多种网络IO模型。
+
+#### 五种IO网络模型
+
+##### 阻塞IO（blocking IO）
+
+linux中，默认情况下，所有的socket都是blocking，如下图，等待数据阶段，整个进程会被阻塞，直到数据准备，将数据从内核copy到用户空间，然后内核返回结果，用户进程才会解除blocking状态，重新运行。几乎所有的IO结果都是阻塞型的。
+
+<img src="..\pic\blocking_io.png" alt="blocking_io" style="zoom:100%;" />
+
+##### 非阻塞IO (non-blocking IO)
+
+可以将socket设置为NON-BLOCKING，使其变为非阻塞，如下图，用户进程read时，如果没有数据，则直接返回，不会阻塞用户进程。但是，用户进程需要不断的询问kernel数据是否准备好(很耗CPU)。（recv return， > 0 接收数据完毕(字节数)，0 连接正常断开，-1 and errno == EAGAIN recv还没有执行完成，-1 and errno==EAGAIN error）。`fcntl(fd, F_SETFL, O_NONBLOCK); // 设置为非阻塞`
+
+<img src="..\pic\nonblocking_io.png" alt="nonblocking_io" style="zoom:60%;" />
+
+##### 多路复用IO (IO multiplexing)
+
+事件驱动IO (event driven IO)：select/epoll，使得单个进程/线程可同时监听多个网络连接的IO，
+
+基本原理是：select/epoll会不断轮询给所有监听的socket，当有socket数据到达时，通知用户进程。
+
+PS：如果连接数不是很高的话，使用select/epoll的web server不一定比使用multi-threading + blocking IO的web server性能更好，可能延迟更大。因为前者需要两个系统调用(select/epoll + read)，而后者只有一个(read)。但是在连接数很多的情况下，select/epoll的优势就凸显出来了。
+
+<img src="..\pic\io_multiplexing.png" alt="io_multiplexing" style="zoom:50%;" />
+
+##### 异步IO （Asynchronous IO）
+
+Linux下asynchronouse IO用在磁盘读写操作，而不是网络IO，如下图。kernel收到用户进程的aio_read之后会立即返回，不会阻塞，用户进程可以区干其它事情，当kernel数据准备好后，给用户进程发送一个信号，通知aio_read完成。
+
+<img src="..\pic\aysnchronous_io.png" alt="aysnchronous_io" style="zoom:50%;" />
+
+##### 信号驱动IO (signal driven IO, SIGIO)
+
+当数据报准备好，内核就为进程产生一个SIGIO信号。随后可在信号处理函数中调用read读取数据报。
+
+<img src="D:\MyGit\Linux-C-Learn\pic\sigio.png" alt="sigio" style="zoom:60%;" />
+
+
+
+#### 服务器模型Reactor和Proactor
 
 对于高并发编程，网络连接上的消息处理分为两个阶段：
 
@@ -110,15 +148,20 @@ reactor + 线程池
 1. 套接字设置为非阻塞的
 2. 线程主动查询消息是否准备好
 
-这就是传送中的IO多路复用：处理等待消息准备好这件事，它可以同时处理多个连接。
+这就是IO多路复用：处理等待消息准备好这件事，它可以同时处理多个连接。
 
 作为一个高性能服务器，通常需要考虑处理三类事件：IO事件，定时事件及信号
 
-#### Reactor模型
+
+
+##### Reactor模型
 
 普通函数调用机制：程序调用某函数-->函数执行-->程序等待-->函数将结果和控制权返回给程序-->程序继续处理。
 
-Reactor模型一种事件驱动机制，应用程序不主动调用某个API处理，而是提供响应的接口并注册到Reactor上，如果相应事件发生，Reactor主动调用应用程序注册的接口，这些接口又称为回调函数。
+### Reactor模型一种事件驱动机制，应用程序不主动调用某个API处理，而是提供相应的接口并注册到Reactor上，如果相应事件发生，Reactor主动调用应用程序注册的接口，这些接口又称为回调函数。
+Reactor模型一种事件驱动机制，应用程序不主动调用某个API处理，**而是提供响应的接口并注册到Reactor上**，如果相应事件发生，Reactor主动调用应用程序注册的接口，这些接口又称为回调函数。
+
+
 
 将所有要处理的IO事件注册到一个中心IO多路复用器上，同时主线程/进程阻塞在**多路复用器**上。一旦有IO事件到来或准备就绪，多路复用器返回并将事件先注册到相应IO事件分发到对应的处理中。
 
@@ -143,7 +186,7 @@ Reactor模式是编写高性能网络服务器得必备技术之一，具有以�
 
 - 响应快，不必为单个同步事件所阻塞，虽然reactor本身依然同步
 - 编程简单，最大程度避免复杂的多线程及同步问题，避免多线程/进程的切换开销
-- 可扩展性，可以方便的通过增加reactor实例个数来充分利用cpu资源
+- 可扩展性，可以方便的通过增加reactor实例个数来充分利用cpu资源（一个核心对应一个reactor，nginx）
 - 可复用性，reactor框架本身与具体事件处理逻辑无关，具有很高的复用性
 
 **代码实现：**
@@ -186,7 +229,7 @@ int reactor_addlistener(struct reactor *r, int sockfd, CALLBACK * acceptor) {
     if (r == NULL) return -1;
     if (r->events == NULL) return -1;
     set_event(&r->events[sockfd], sockfd, acceptor, r);
-    ad_event(r->epfd, EPOLLIN, &r->events[sockfd]);
+    add_event(r->epfd, EPOLLIN, &r->events[sockfd]);
     return 0;
 }
 
@@ -246,29 +289,19 @@ int main(int argc, char *argv[]) {
 
 
 
+##### Proactor模型
 
+<img src="..\pic\proactor.png" alt="proactor" style="zoom:60%;" />
 
+1. 处理器发起异步操作，并关注IO完成事件
+2. 事件分离器等待操作完成事件
+3. 分离器等待过程中，内核并行执行实际的IO操作，并将结果数据存入用户自定义缓冲区，最后通知事件分离器读操作完成
+4. IO完成后，通过事件分离器呼唤处理器
+5. 事件处理器处理用户自定义缓冲区中的数据
 
+Proactor模型最大的特点是使用异步IO，所有IO操作都交给系统体统的异步IO接口执行。工作线程仅负责业务逻辑。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+增加了编程复杂度，但给工作线程带来了更高效率。Windows中没有epoll机制，提供IOCP来支持高并发，由于操作系统作了较好的优化，windows较常采用Proactor的模型利用完成端口来实现服务器。linux2.6后也有aio接口，但是效果不理想，如果epoll性能。
 
 
 
