@@ -549,6 +549,17 @@ Python针对小对象（小于512字节）的内存分配采用内存池来进�
 
 对小对象内存的分配器Python进行了3个等级的抽象：arena，pool和block
 
+![python_mem_arch](..\pic\python_mem_arch.png)
+
+- 第0层：操作系统提供的内存管理接口，比如malloc，free
+- 第1层：包装malloc，free等接口PyMem_API，提供统一的raw memory管理接口，为了可移植性
+- 第2层：构建了更高抽象恩赐的内存管理策略
+- 第3层：对象缓冲池
+
+内存池可视为一个层次结构，自下而上分为四层：block，pool，arena和内存池(概念)
+
+
+
 **Block：**
 
 内存管理器的最小单元，一个Block存储一个Python对象，大小：[8, 16, 24, 32, 40, 48 ... 512]，(8*n)，以8字节为一个单位，为了字节对齐。
@@ -557,7 +568,7 @@ block释放时，会引起pool的状态改变
 
 **Pool：**
 
-一系列Block则组成一个Pool，一个Pool中所有Block大小一样，也就是Pool是一种Block的容器，每个Pool为4K大小(一个虚拟内存页的大小)。一个小对象被销毁后，其内存不会马上归还系统，而是在pool中被管理着，用于分配给后面申请的内存对象。pool的三种状态：used，full，empty
+一系列Block则组成一个Pool，一个Pool中所有Block大小一样，也就是Pool是一种Block的容器，每个Pool为4K大小(一个虚拟/系统内存页的大小)。一个小对象被销毁后，其内存不会马上归还系统，而是在pool中被管理着，用于分配给后面申请的内存对象。pool的三种状态：used，full，empty
 
 ```c
 struct pool_header {
@@ -568,7 +579,7 @@ struct pool_header {
     block *freeblock;  // 指向pool中可用block的单向链表
     struct pool_header *nextpool;
     struct pool_header *prevpool;
-    uint szidx;  // 记录pool保存的block的大小
+    uint szidx;  // 记录pool保存的block的大小，一个pool中所有block都是szidx大小
 };
 ```
 
@@ -580,7 +591,7 @@ python使用一个数组usedpools来管理使用中的pool
 
 **Arena**
 
-Arena则是Python从系统分配申请和释放的单位，有256KB，每个Arena中包含了64个Pool（256KB，因此只有<=256KB的数据才会在内存池中申请内存，否则采用malloc），也为双向链表，Python在分配Pool的时候优先选择可用Pool数量少的Arena进行内存分配。因为Python只有在Arena中所有的Pool全为空时才释放Arena中的内存，如果选择上可用Pool数量最多的Arena的话，大量内存会被占用不会销毁。
+Arena则是Python从系统分配申请和释放的单位，有256KB，每个Arena中包含了**64个Poo**l（256KB，因此只有<=256KB的数据才会在内存池中申请内存，否则采用malloc），也为双向链表，Python在分配Pool的时候优先选择可用Pool数量少的Arena进行内存分配。因为Python只有在Arena中所有的Pool全为空时才释放Arena中的内存，如果选择上可用Pool数量最多的Arena的话，大量内存会被占用不会销毁。
 
 ```c
 struct arena_object {
