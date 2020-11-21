@@ -1,40 +1,8 @@
-string hash 列表list 集合set 有序集合
+### 第三部分  多机数据库的实现
 
-抓包
+#### 主从复制模式
 
-`sudo tcpdump -i any dst host 127.0.0.1 and port 6379`
-
-缓存热门图片
-
-存储文章
-
-
-
-散列hash和字符串string的选取
-
-字符串功能更丰富
-
-hash的过期时间只能针对整个key，无法针对key中某个field
-
-
-
-列表list：秒杀，分页
-
-
-
-multi 开启事务，为全局事务
-
-
-
----
-
-### Redis集群
-
-#### 一. 单机模式
-
-只适合做调试
-
-#### 二. 主从模式
+PSYNC命令具有完整重同步和部分重同步
 
 读写分离：主机负责写入，从机负责读出
 
@@ -48,9 +16,13 @@ rdbcompression yes
 # slaveof ip port  // 如果从节点，需要加上这个，ip为master节点
 ```
 
-#### 三. Sentinel模式
+
+
+#### Sentinel哨兵模式
 
 基于主从复制模式，主机宕机，会在若干个从机中选取一个作为主机）解决了高可用的问题
+
+- 每10s一次的频率向被监视的主服务器和从服务器发送INFO命令，当主服务器下线，或者Sentinel正对主服务器进行故障转移时，Sentinel向从服务器发送INFO命令的频率改成1s一次
 
 ```shell
 # 配置 sentinel.conf
@@ -88,7 +60,7 @@ sentinel模式基本可满足一般生成需求，具备高可用性，当数据
 
 
 
-#### 四. Cluster模式
+#### Cluster集群模式
 
 ```shell
 # redis.conf 配置
@@ -99,6 +71,8 @@ port 8001
 # 开启指令
 ./redis-cli --cluster create 192.168.199.131:7001 192.168.199.131:7002 192.168.199.131:7003 --cluster-replicas 1
 ```
+
+
 
 cluster的出现为了解决单机Redis容量有限的问题，将Redis的数据根据一定的规则分配到多台机器。
 
@@ -125,6 +99,8 @@ Redis cluster是Redis的分布式解决方案，有效解决了Redis分布式方
 replication，一个master，多个slave，
 
 redis cluster：针对海量数据，高并发，高可用的场景。
+
+
 
 
 
@@ -199,21 +175,3 @@ redis cluster高可用的原理，和哨兵类似
 ##### 与哨兵比较
 
 redis cluster非常强大，直接集成了replication和sentinal的功能
-
-
-
-
-
-Redis缓存怎么设计
-
-MySQL持久化怎么设计
-
-
-
-主从复制，除了sentinel模式，还有没有其它方案可做到高可用？   （lvs + keepalived    vip：虚拟ip）
-
-
-
-c/c++如何连接集群？    hiredis
-
-memcached

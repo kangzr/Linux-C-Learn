@@ -95,7 +95,43 @@ redis跳表层数增加原则：
 
 
 
+string hash 列表list 集合set 有序集合
 
+抓包
+
+`sudo tcpdump -i any dst host 127.0.0.1 and port 6379`
+
+缓存热门图片
+
+存储文章
+
+散列hash和字符串string的选取
+
+字符串功能更丰富
+
+hash的过期时间只能针对整个key，无法针对key中某个field
+
+列表list：秒杀，分页
+
+multi 开启事务，为全局事务
+
+
+
+
+
+
+
+
+
+
+
+Redis缓存怎么设计
+
+MySQL持久化怎么设计
+
+c/c++如何连接集群？    hiredis
+
+memcached
 
 
 
