@@ -233,8 +233,8 @@ redis协议为明文协议
 protobuffer流程：
 
 1. 编写.proto文件，定义协议内容
-2. protoc .proto文件，生成对应文件(.cc .h)
-3. 将文件引入项目
+2. protoc .proto文件，生成对应文件(.cc .h) `protoc xx.proto --cpp_out=.`
+3. 将文件引入项目；`g++ test_msg.cc msg.pb.cc -lprotobuf`
 
 
 
@@ -286,6 +286,78 @@ protobuf rpc的实现主要包括编写proto文件并编译生成对应的servic
 5. echo流程：client 创建TcpClient，并连接服务端，连接建立后，利用MyEchoClientReply创建RpcChannel，IEchoService_Stub利用RpcChannel创建client的stub；  client.stub.echo("123")，会调用RpcChannel的CallMethod发送出去（任何rpc最终都调用CallMethod），接收方TcpConnection.handle_read调用RpcChannel的input_data，反序列化后，会调用EchoService的CallMethod，protobuf会自动调用我们实现的echo方法。
 
 6. echo_reply流程：server收到client的echo调用后，利用IEchoClient_Stub构建client_stub，     通过client_stub.echo_reply(msg)，调用MyEchoClientReply中的echo_reply
+
+
+
+
+
+
+
+- 数据传输，序列化+反序列化
+- rpc代理程序生成
+- 接口的注册、管理、动态开启关闭，接口发现等
+- rpc数据完整性，超时通知、重传、分包：ping-pong
+- 数据安全性问题，接口验证、数据加解密
+- 协议
+- 异常处理
+- 日志
+- 性能，内存开销，数据传输等
+
+
+
+
+
+---
+
+#### Boost.Asio + google protobuf实现RPC
+
+
+
+#### RPC客户端
+
+需要实现`google::protobuf::RpcChannel`，主要实现`RpcChannel::CallMethod`接口，RPC客户端调用任何一个RPC接口，最终都是调用`CallMethod`，这个接口的典型实现就是将RPC调用参数序列化，然后投递给网络模块进行发送；
+
+
+
+#### RPC服务端
+
+需要实现RPC接口，直接实现MyService中定义的接口
+
+
+
+#### 标识service&method
+
+建立RPC接口到protobuf service对象的映射；每个service/rpc对应一个唯一的id；
+
+```cpp
+// 注册
+_rpcCallMap[rpcIdx] = make_pair<rpcService, pDes>;
+```
+
+
+
+#### RpcChannel
+
+可理解为一个通道，连接rpc服务的两端，本质上通过socket通信；google protobuf实现为一个纯虚函数；
+
+因此需要实现一个子类，基类为`RpcChannel`，并实现`CallMethod`方法，应该实现两个功能
+
+- 序列化request，发送到对端，同时需要标识机制使得对端知道如何解析(schema)和处理(method)这类数据
+- 接受对端数据，反序列化到response
+
+```cpp
+// Abstarct interface for an RPC channel.
+// You should not call an RpcChannel directly, but instead construct a stub Service wrapping it
+// RpcChannel* channel = new MyRpcChannel("remotehost.exmaple.com:1234");
+// MyService* service = new MyService::Stub(channel);
+// service->MyMethod(request, &response, callback);
+```
+
+
+
+
+
+
 
 
 
