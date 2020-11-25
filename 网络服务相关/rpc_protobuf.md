@@ -311,6 +311,12 @@ protobuf rpc的实现主要包括编写proto文件并编译生成对应的servic
 
 #### Boost.Asio + google protobuf实现RPC
 
+一个完整的RPC通信需要包含三部分：
+
+- protobuf自动生成的代码
+- RPC框架
+- 用户填充代码
+
 
 
 #### RPC客户端
@@ -355,19 +361,24 @@ _rpcCallMap[rpcIdx] = make_pair<rpcService, pDes>;
 
 
 
+[极简版RPC](https://izualzhy.cn/demo-protobuf-rpc)
+
+[minRPC](https://github.com/shinepengwei/miniRPC)
 
 
 
 
 
+区分网络通信的服务端/客户端与RPC服务端/客户端
 
+#### 模块构成
 
+TcpConnection：
 
+- RpcChannel子类，提供CallMethod函数，该函数用于RPC客户端调用stub的service时使用，包括function和参数信息的序列化，以及调用数据传输
+- 封装socket，以及和socket相关的数据传输函数，包括发送数据，接受数据回调
 
-
-
-
-
+TcpServer
 
 
 
