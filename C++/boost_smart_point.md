@@ -1,5 +1,26 @@
 #### boost::scoped_ptr
 
+`boost/scoped_ptr.hpp`
+
+can’t transfer ownership of an object.Once initialized with an address, the dynamically allocated object is released when the destructor is executed or when the member function `reset()` is called
+
+```cpp
+#include <boost/scoped_ptr.hpp>
+#include <iostream>
+
+int main()
+{
+  boost::scoped_ptr<int> p{new int{1}};
+  std::cout << *p << '\n';
+  p.reset(new int{2});
+  std::cout << *p.get() << '\n';
+  p.reset();
+  std::cout << std::boolalpha << static_cast<bool>(p) << '\n';
+}
+```
+
+
+
 
 
 #### static_cast

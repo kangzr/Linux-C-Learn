@@ -276,14 +276,14 @@ key：tag << 3 | ware_type
 
 google protobuf只负责消息的打包和解包，并不包含RPC的实现，但其包含了RPC的定义。也不包括通讯机制。
 
-protobuf rpc的实现主要包括编写proto文件并编译生成对应的service_pb2/.proto文件，继承RpcChannel并实现CallMethod和调用Service的CallMethod，继承Service来实现暴露给客户端的函数。
+protobuf rpc的实现主要包括编写proto文件并编译生成对应的service_pb2.proto文件，继承RpcChannel并实现CallMethod和调用Service的CallMethod，继承Service来实现暴露给客户端的函数。
 
 1. 编写*.proto文件，用probuf语法编写IEchoService     及其相应的method，echo; (IEchoClient 与 echo_reply)
 2. 把proto文件，编译成*py文件，会生成相应的IEchoService     (被调用方)和 IEchoService_Stub(调用方)的类，IEchoService_Stub继承IEchoService，(Client同)
 3. 当Server作为被调用方，需要实现自己的Service(MyEchoService)，继承IEchoService并自己实现具体的rpc处理逻辑，如echo方法，供client调用
 4. 当Client作为被调用方，需要实现自己的Service(MyEchoClientReply)，继承IEchoClient并实现具体rpc处理逻辑，例如echo_reply，供server调用
 
-5. echo流程：client 创建TcpClient，并连接服务端，连接建立后，利用MyEchoClientReply创建RpcChannel，IEchoService_Stub利用RpcChannel创建client的stub；  client.stub.echo("123")，会调用RpcChannel的CallMethod发送出去（任何rpc最终都调用CallMethod），接收方TcpConnection.handle_read调用RpcChannel的input_data，反序列化后，会调用EchoService的CallMethod，protobuf会自动调用我们实现的echo方法。
+5. echo流程：client 创建TcpClient，并连接服务端，连接建立后，利用MyEchoClientReply创建RpcChannel，IEchoService_Stub利用RpcChannel创建client的stub；  client.stub.echo("123")，会调用RpcChannel的CallMethod发送出去（**任何rpc最终都调用CallMethod**），接收方`TcpConnection.handle_read`调用RpcChannel的input_data，反序列化后，会调用**EchoService的CallMethod**，protobuf会自动调用我们实现的echo方法。
 
 6. echo_reply流程：server收到client的echo调用后，利用IEchoClient_Stub构建client_stub，     通过client_stub.echo_reply(msg)，调用MyEchoClientReply中的echo_reply
 
@@ -365,7 +365,7 @@ _rpcCallMap[rpcIdx] = make_pair<rpcService, pDes>;
 
 [minRPC](https://github.com/shinepengwei/miniRPC)
 
-
+[pythonRPC](https://blog.csdn.net/majianfei1023/article/details/71628784)
 
 
 
