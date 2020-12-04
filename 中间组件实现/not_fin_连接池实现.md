@@ -84,6 +84,53 @@ CDBPool 连接池，管理连接
 #### MySQL - Pool
 
 ```cpp
+// Thread.h
+#include <stdint.h>
+#include <pthread.h>
+class CThreadNotify
+{
+public:
+    CThreadNotify()
+    {
+        pthread_mutexattr_init(&m_mutexattr);
+        pthread_mutexattr_settype(&m_mutexattr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&m_mutex, &m_mutexattr);
+        pthread_cond_init(&m_cond, NULL);
+    }
+    ~CThreadNotify()
+    {
+        pthread_mutexattr_destroy(&m_mutexattr);
+        pthread_mutex_destroy(&m_mutex);
+        pthread_cond_destroy(&m_cond);
+    }
+    void Lock()
+    {
+        pthread_mutex_lock(&m_mutex);
+    }
+    void Unlock()
+    {
+        pthread_mutex_unlock(&mutex);
+    }
+    void Wait()
+    {
+        pthread_cond_wait(&m_cond, &m_mutex);
+    }
+    int WaitTime(int ms){
+        ...
+        return pthread_cond_timedwait(&m_cond, &m_mutex, &outtime);
+    }
+  	void Signal()
+    {
+        pthread_cond_signal(&m_cond);
+    }
+private:
+    pthread_mutex_t m_mutex;
+    pthread_mutexattr_t m_mutexattr;
+    pthread_cond_t m_cond;
+};
+
+
+
 // DBpool.h
 class CDBPool {
 public:
@@ -101,6 +148,7 @@ private:
     int m_db_max_conn_cnt;  // 最大连接数量
 }
 
+// DBpool.c
 int CDBPool::Init()
 {
     for (int i = 0; i < m_db_cur_conn_cnt; i++) {
@@ -132,7 +180,19 @@ CDBConn *CDBPool::GetDBConn()
 }
 
 void CDBPool::RelDBConn(CDBConn *pConn) {
-    
+    m_free_notify.Lock();
+    list<CDBConn *>::iterator it = m_free_list.begin();
+    for (; it != m_free_list.end(); it++)
+    {
+        if (*it == pConn){
+            break;
+        }
+    }
+    if (it == m_free_list.end()){
+        m_free_list.push_back(pConn);
+    }
+    m_free_notify.Signal();
+    m_free_notify.Unlock();
 }
 ```
 
