@@ -83,7 +83,7 @@ int main(){
 
 
 
-##### lighthttpd
+##### lighttpd
 
 
 
