@@ -19,7 +19,7 @@ linux  0.11版本看的比较清楚；（linux 0.01版本实现了系统调用�
 
 
 
-##### 详细说明open系统过程的具体过程
+##### 详细说明open系统过程的具体过程  -- 具体总结
 
 触发80软中断(int 0x80) -->  system_call (Sched.c中init时绑定`set_system_call`) --> call sys_call_table(, %eax, 4)（%eax系统调用号）--> `sys_open` 
 
@@ -40,13 +40,113 @@ linux  0.11版本看的比较清楚；（linux 0.01版本实现了系统调用�
 linux包含以下几个重要部分
 
 1. 进程管理
-2. 网络（从网络开始看）`tcp_input.c tcp_output.c tcp_ipv4.c sock_init接口net_syssctl_init tcp_init tcp_init_sock`
+2. 网络（从网络开始看）`tcp_input.c tcp_output.c tcp_ipv4.c sock_init接口net_syssctl_init tcp_init tcp_init_sock` `tcp.c`
+
+
+
+dmsg查看linux打印信息  printk
+
+##### fort函数创建进程如何实现？--  总结
+
+copy on write (COW)
 
 
 
 
 
-dmsg查看linux打印信息
+---
+
+
+
+#### Linux内核的整体架构
+
+<img src="..\pic\linux_total_sys.png" alt="linux_total_sys" style="zoom:75%;" />
+
+- 进程管理（Process Scheduler）：负责管理CPU资源，以便让各个进程可以尽量公平的访问CPU
+- 内存管理（Memory Manager）：负责管理内存资源，以便让各个进程可以安全地共享机器的内存资源；且提供了虚拟内存的机制，该机制可让进程使用多于系统可用的内存，不用的内存通过文件系统保存在外部非易失存储器中，需要时候，再换回内存
+- 虚拟文件系统（Virtual File System）：Linux内核将不同功能的外部设备抽象为可以通过统一的文件操作接口（open，close等）来访问。
+- 设备驱动：负责管理第三方设备接入/终端
+- 网络（Network），网络子系统，负责管理系统的网络设备。
+
+#### 进程调度（Process Scheduler）
+
+提供对CPU的访问控制。
+
+<img src="..\pic\linux_process.png" alt="linux_process" style="zoom:75%;" />
+
+- scheduling policy：实现进程调度的策略，决定哪个进程将拥有CPU
+- Architecture-specific Schdulers，体系结构相关部分，用于对不同CPU的控制，抽象为统一的接口。
+- System Call Interface，系统调用接口，
+
+#### 内存管理（Memory Manager，MM）
+
+对内存资源访问控制
+
+#### 网络子系统
+
+<img src="..\pic\linux_networkd_sub.png" alt="linux_networkd_sub" style="zoom:75%;" />
+
+Network protocols：实现各种网络传输协议
+
+
+
+##### CFS完全公平调度器
+
+基于时间最短的最公平调度；
+
+主要思想：维护为任务提供处理器时间方面的平衡（公平性）；
+
+CFS通过虚拟运行时间（vruntime）来实现平衡，维护提供给某个任务的时间量；CFS调度器中有一个计算虚拟时间的核心函数`calc_delta_fair()`
+
+`fair.c/update_curr sched.c`
+
+```c
+struct task_struct {
+  	struct sche_entity se;  // 用来跟踪调度信息  
+};
+struct sched_entity {
+  	struct rb_node run_node;  // 红黑树节点
+};
+
+struct rb_node {
+  	unsigned long __rb_parent_color;
+    struct rb_node * rb_right;
+    struct rb_node * rb_left;
+};
+
+struct rb_root_cached {
+  	struct rb_root rb_root;
+    struct rb_node * rb_leftmost;  // 最左节点指针
+};
+
+// CFS调度器的核心函数  kernel/sched/core.c/__schedule()  
+// pick_next_task()让进程调度器从就绪队列中选择一个最合适的进程next，即红黑树最左边的节点
+// context_switch()切换到新的地址空间，从而保证next进程运行
+// 时钟周期结束时，调度器调用entity_tick()函数来更新进程负载，进程状态以及vruntime>
+// 最后将进程的虚拟时间与就绪队列红黑树中最左边的调度实体的虚拟时间比较，如果小于，则不用触发调度，继续当前实体
+```
+
+#### 虚拟内存管理
+
+内核管理某个进程的内存时使用了红黑树，每个进程都有一个`active_mm`的成员来管理该进程的虚拟内存空间。`struct mm_struct`中的成员`mm_rb`是红黑树的根，该进程的所有虚拟空间块都以起始虚拟地址为key值挂在该红黑树上。该进程新申请的虚拟内存区间会插入到这棵树上，当然插入过程中可能会合并相邻的虚拟区域。删除时会从树上摘除相应的node
+
+![linux_rb_mm](..\\pic\linux_rb_mm.png)
+
+虚拟内存区域结构`struct vm_area_struct`描述。从进程角度来讲，VMA其实是虚拟空间的内存块，一个进程的所有资源由多个内存块组成，所以一个进程的描述结构包含linux的内存描述`mm_struct`
+
+```c
+struct task_struct {
+    ...
+    struct mm_struct *m;
+    ...
+}
+
+struct mm_struct {
+    struct vm_area_struct *mmap;
+    struct rb_root mm_rb;
+    struct vm_area_struct * mmap_cahce;
+}
+```
 
 
 
@@ -54,17 +154,7 @@ dmsg查看linux打印信息
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+---
 
 #### linux 0.0.1版本分析
 
