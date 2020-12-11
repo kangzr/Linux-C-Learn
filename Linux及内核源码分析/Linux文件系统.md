@@ -177,7 +177,9 @@ cp /proc/2864/fd/4 /root/tcpdump.log
 
 
 
+[参考](https://zhuanlan.zhihu.com/p/61123802)
 
+VFS：file文件，dentry目录，inode索引，mount point安装点
 
 
 
