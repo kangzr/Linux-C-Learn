@@ -2,7 +2,7 @@
 
 #### 1. 冒泡排序
 
-**基本思想**：从后往前比较，把较小者往前移，像气泡一样冒上来
+**基本思想**：从后往前比较，把较小者往前移，像气泡一样冒上来；（设置一个flag，如果一趟排序再无修改，则已经为有序数组）
 
 **性质**：属于内排序，稳定排序
 
@@ -13,7 +13,7 @@
 ```c
 void bubble_sort(int *data, int length){
   int i = 0, j = 0, flag = 1;
-  for (i = 0; i < length - 2 && flag; i++){
+  for (i = 0; i < length - 1 && flag; i++){
     flag = 0;
     for (j = length - 2; j >= 0; j--){
       if (data[j+1] < data[j]){
@@ -68,7 +68,7 @@ void insert_sort(int *data, int length){
   for(i = 1; i < length; i++){
     if(data[i] < data[i-1]){
       temp = data[i];
-      for(j = i - 1; data[j] > temp; j--){
+      for(j = i - 1; j >= 0 && data[j] > temp; j--){
         data[j+1] = data[j];
       }
       data[j+1] = temp;
@@ -104,7 +104,15 @@ void shell_sort(int *data, int length){
 }
 ```
 
+
+
 #### 5. 堆排序
+
+**时间复杂度**：平均/最好/最坏都是O(nlogn)
+
+**空间复杂度**：O(1)
+
+**性质**：内排序+不稳定
 
 （实现时间轮定时器，一个定时器，实现若干个定时任务）
 
@@ -178,6 +186,7 @@ void merge_divide(int *data, int *temp, int start, int end){
 
 void merge_sort(int *data, int length){
   int *temp = (int *)malloc(sizeof(int) * length);
+  memset(temp, 0, sizeof(int) * length);
   merge_divide(data, temp, 0, length - 1);
   free(temp);
 }
@@ -239,9 +248,9 @@ void quick_sort(int *data, int length){
 
 **算法思想**：输入是有一个小范围内的整数构成的（比如年龄等），利用额外的数组去记录元素应该排列的位置（局限性比较大，数组范围不能太大，且只能为整数）
 
-计数排序是典型的不是基于比较的排序算法，基于比较的排序算法最少也要O(nlogn)，有没有可能创造线性时间的排序算法呢？那就是不急于比较的排序算法
+计数排序是典型的**不是基于比较**的排序算法，基于比较的排序算法最少也要O(nlogn)，有没有可能创造线性时间的排序算法呢？那就是不基于比较的排序算法
 
-使用额外数组q，q的大小为待排序数组中最大元素+1，该数组的含义是：每个位置的值为该位置索引对应的元素的个数（额外数组索引值==待排序数组元素值），根据数组q来将元素排到正确位置。
+使用额外数组q，q的大小为待排序数组中最大元素+1，该数组的含义是：**每个位置的值为该位置索引对应的元素的个数**（额外数组索引值==待排序数组元素值），根据数组q来将元素排到正确位置。
 
 算法步骤：
 
@@ -263,7 +272,7 @@ void count_sort_core(int *data, int len, int max) {
     memset(cnts, 0, sizeof(int) * max);
     
     int i;
-    for (i = 0; i < max; i ++)
+    for (i = 0; i < len; i ++)
         cnts[data[i]]++;
     
     for (i = 1; i < max; i ++)
@@ -397,9 +406,9 @@ int main() {
 
 
 
+##### 各排序算法对比
 
-
-
+<img src="..\pic\sort.png" alt="sort" style="zoom:75%;" />
 
 
 

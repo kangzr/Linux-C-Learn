@@ -7,24 +7,6 @@
 
 
 
-##### 系统调用的过程？
-
-linux  0.11版本看的比较清楚；（linux 0.01版本实现了系统调用，移植了gcc，编译可执行程序）
-
-80中断的入口函数在哪？（sys_call_table系统用调用表，每个元素对应一个系统调用，所有系统调用的中断）
-
-80软中断 跟`system_call`接口，`system_call`用汇编实现；
-
-`Unistd.h`中申明了所有系统调用的id，比如open对应`_NR_open`
-
-
-
-##### 详细说明open系统过程的具体过程  -- 具体总结
-
-触发80软中断(int 0x80) -->  system_call (Sched.c中init时绑定`set_system_call`) --> call sys_call_table(, %eax, 4)（%eax系统调用号）--> `sys_open` 
-
-
-
 ##### 为什么采用中断，而不是函数调用？
 
 用户空间与内核空间，完全隔离，通过中断方式隔开；所有的进程共用内核代码；
@@ -49,8 +31,6 @@ dmsg查看linux打印信息  printk
 ##### fort函数创建进程如何实现？--  总结
 
 copy on write (COW)
-
-
 
 
 
@@ -268,6 +248,157 @@ memory manage内存管理，就一个memory.c文件
 - **执行/bin/login程序，进入登录状态**
 
   系统已经进入到了等待用户输入username和password的时候了，你已经可以用自己的帐号登入系统了
+
+
+
+---
+
+
+
+> 基于0.01版本 以open为例 说明linux系统调用过程
+
+#### 1. 0.01版本源码目录结构
+
+##### boot/
+
+`boot.s`：自检引导扇区，加载操作系统，由BIOS加载执行
+
+`head.s`：由boot.s调用，进行初始化设置（比如），最后调用main函数完成系统引导
+
+```assembly
+# head.s
+after_page_tables:
+	pushl $0
+	pushl $0
+	pushl $0
+	pushl $L6
+	pushl $_main  # main.c地址入栈，设置分页(setup_paging)结束后执行ret返回指令时将main.c的地址pop并执行
+	jmp setup_paging
+L6:
+	jmp L6
+```
+
+##### fs/
+
+文件系统，对文件的各种操作比如open，stat等
+
+##### include/
+
+一些组件头文件，比如内存，进程，io等
+
+##### init/
+
+main函数进行一系列初始化：时钟初始化，tty初始化，进程调度初始化等，并fork一个进程来运行init函数进入进程调度循环，init会fork另外一个进程建立一个shell。main函数进入循环等待，操作全部交给用户。
+
+##### lib/
+
+库文件
+
+##### mm/
+
+内存管理
+
+##### kernel/
+
+内核代码，比如进程创建fork.c，内存分配malloc.c，进程调度sched.c等
+
+
+
+具体代码不细展开，可自行[前往](https://github.com/zavg/linux-0.01)阅读
+
+
+
+#### 2. 系统调用过程（以open为例）
+
+系统调用接口对应的ID申明在`include/unistd.h`中
+
+```c
+// /include/unistd.h
+#define __NR_fork 2  // fork系统调用
+#define __NR_read 3  // read系统调用
+#define __NR_open 5  // open系统调用
+```
+
+
+
+##### open接口调用入口
+
+从以下代码可看出，open会触发0x80软中断，并将其flag `__NR_open`作为参数传入
+
+```c
+// lib/open.c
+int open(const char* filename, int flag, ...)
+{
+    register int res;
+    va_list arg;
+    va_start(arg, flag);
+    __asm__("int $0x80"  // 触发0x80软中断，从用户空间进入内核空间
+           :"=a" (res)
+           :"0" (__NR_open),"b"(filename),"c"(flag),  // 将__NR_open作为参数传入
+           "d" (var_arg(arg,int)));
+    if (res >= 0)
+        return res;
+    errno = -res;
+    return -1;
+}
+
+
+```
+
+
+
+##### 那么，触发0x80软中断会调到哪个接口？
+
+0x80软中断与系统调用`system_call`绑定
+
+```c
+// init/main.c (从head.s中调过来)
+// main接口中会启动进程调度器
+void main(void) {
+    time_init();  // 时钟初始化
+    tty_init();	  // tty设备初始化
+    trap_init();  // 系统陷阱初始化
+    sched_init();  // 进程调度器初始化
+    ...
+}
+
+// 进程调度代码在kernel/sched.c中
+void sched_init(void) {
+    ...
+    set_system_gate(0x80, &system_call);  // 绑定系统调用软中断
+}
+
+// system_call接口通过汇编实现，具体代码在kernel/system_call.s中
+_system_call:
+	...
+     call _sys_call_table(,%eax,4)  // 根据寄存器%eax中的参数找到对应的接口并执行
+        
+// sys_call_table实现在include/linux/sys.h
+fn_ptr = sys_call_table[] = {sys_fork, sys_read, sys_write, sys_open...};
+```
+
+因此，open调用触发0x80软中断后会走到system_call中，system_call根据open传入的参数`__NR_open`偏移后在`_sys_call_table`中找到对应的系统调用接口`sys_open`
+
+```c
+// sys_open实现在fs/open.c中，返回filename对应文件的文件描述符fd
+int sys_open(const char * filename, int flag, int mode)
+{
+    struct m_inode *inode;
+    struct file *f;
+    int i, fd;
+    mode &= 0777 & ~current->umask; // 打开模式
+    ...
+    return (fd);
+}
+```
+
+
+
+以上为linux open系统调用的整个过程
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-LRU算法
+#### LRU算法
 
 如果一个数据在最近一段时间没有被访问到，那么它在将来被访问的可能性也很小。
 
@@ -38,19 +38,15 @@ class LRUCache {
         }
     private:
     	int _capacity;
-    	list<pair<int, int>> _cache;
-    	unordered_map<int, list<pair<int, int>>::iterator> _m;
+    	list<pair<int, int>> _cache;  // pair<key, value>
+    	unordered_map<int, list<pair<int, int>>::iterator> _m;  // key: iterator    
     	
 };
 ```
 
 
 
-
-
-
-
-upperbound算法：找到大于target的第一个元素
+#### upperbound算法：找到大于target的第一个元素
 
 ```c++
 int search(vector<int> row, int target) {
@@ -68,9 +64,51 @@ int search(vector<int> row, int target) {
 
 
 
+#### KMP算法
+
+用于处理在一个字符串中寻找子串(pattern)，首先要根据pattern构建next数组；
+
+时间复杂度：O(texlen + ptnlen)
+
+回溯：取决于pattern公共前缀与后缀有多少（aba --> a/ab  a/ba ---> 1）
+
+```c
+void make_next(const char *pattern, int *next){
+  int q, k, m = strlen(pattern);
+  for(q = 1, k = 0; q < m; q++){
+    while(k > 0 && pattern[q] != pattern[k])
+      k = next[k - 1];  // 记录回溯位置
+     
+    if (pattern[q] == pattern[k]) k++;
+
+    next[q] = k;
+  }
+}
+
+int kmp(const char *text, const char *pattern, int *next){
+  int n = strlen(text), m = strlen(pattern);
+  make_next(pattern, next);
+  int i, q;
+  for(i = 0, q = 0; i < n; i++){
+    while(q > 0 && pattern[q] != text[i]){
+      q = next[q - 1];   // 不相等则回溯
+    }
+    if(pattern[q] == text[i]) q++;  // 相等
+    if(q == m){  // 匹配成功
+      break;
+    }
+  }
+  return i - q + 1;
+}
+```
 
 
-Linus删除链表节点骚操作
+
+
+
+
+
+#### Linus删除链表节点骚操作
 
 ```c
 struct ListNode* deleteNode(struct ListNode* head, int val) {
@@ -90,7 +128,7 @@ struct ListNode* deleteNode(struct ListNode* head, int val) {
 
 
 
-常数时间插入删除和获取随机元素， 不允许重复，插入和删除都需要判断元素是否在set中，因此需要使用map来确保时间复杂度。
+#### 常数时间插入删除和获取随机元素， 不允许重复，插入和删除都需要判断元素是否在set中，因此需要使用map来确保时间复杂度。
 
 ```c++
 class RandomizedSet {

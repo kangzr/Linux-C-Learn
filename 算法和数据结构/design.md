@@ -80,7 +80,7 @@ class Singleton {
     	static Ptr get_instance() {
             // std::atomic_thread_fence(std::memory_order_acquire);  //获取内存fence
             if (m_Instance == nullptr) {
-                std::lock_guard<std::mutex> lk(m_mutext);
+                std::lock_guard<std::mutex> lk(m_mutex);
                 // tmp = m_instance.load(std::memory_order_relaxed);
                 if (m_Instance == nullptr) {
                     m_Instance = std::shared_ptr<Singleton> (new Singleton);
@@ -121,7 +121,7 @@ public:
         mutex_.unlock();
     }
 private:
-    my_lock_guard(my_lock_guard const7) = delete;
+    my_lock_guard(my_lock_guard const&) = delete;
     my_lock_guard& operator=(my_lock_guard const&);
     T& mutex_;
 };
@@ -188,22 +188,3 @@ class noncopyable {
     	noncopyable& operator=(const noncopyable&) = delete;
 }
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
