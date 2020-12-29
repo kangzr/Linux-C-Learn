@@ -19,8 +19,6 @@
 
 
 
-
-
 介入层容灾
 
 逻辑层容灾
@@ -67,12 +65,6 @@ zk的高可用采用群兽选举算法来实现。zk的数据结构类似linux�
 
 
 
-
-
-
-
-
-
 ---
 
 
@@ -101,6 +93,8 @@ zeromq
 
 glibc
 
+python协程+多线程
+
 ---
 
 ##### Keep Code
@@ -109,19 +103,25 @@ glibc
 
 
 
+微服务-负载均衡-数据缓存（备份）-容灾机制
+
 ---
+
+
 
 MyBlog
 
-IO多路复用
-
 以Open为例说明系统调用过程   Done
+
+C语言如何实现多态？Done
+
+IO多路复用
 
 Linux如何解决内存碎片和外存碎片？
 
-C语言如何实现多态？
+Boost库中轮子：asio库(Proactor网络库)，Coroutine库(C++协程库)，LockFree库(lock free的queue)，SpinLock(自旋锁)，Boost.Asio+threadpool 模型
 
-
+main函数执行va_list va_start va_arg va_end等变量的理解
 
 
 
