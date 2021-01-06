@@ -592,12 +592,17 @@ EPOLLIN EPOLLOUT 含义
 
 
 
-
-
-
-
 ##### 这句话到底是对是错
 
  epoll 因为采用 mmap的机制, 使得 内核socket buffer和 用户空间的 buffer共享, 从而省去了 socket data copy, 这也意味着, 当epoll 回调上层的 callback函数来处理 socket 数据时, 数据已经从内核层 "自动" 到了用户空间, 虽然和 用poll 一样, 用户层的代码还必须要调用 read/write, 但这个函数内部实现所触发的深度不同了。
 
 ![epoll_time](..\pic\epoll_time.png)
+
+
+
+
+
+
+
+
+

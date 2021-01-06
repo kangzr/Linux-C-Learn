@@ -105,6 +105,8 @@ python协程+多线程
 
 微服务-负载均衡-数据缓存（备份）-容灾机制
 
+
+
 ---
 
 
@@ -113,11 +115,19 @@ MyBlog
 
 以Open为例说明系统调用过程   Done
 
-C语言如何实现多态？Done
+C语言如何实现多态  Done
+
+内存管理机制  Done
+
+基于Protobuf RPC实现原理 Done
+
+
+
+Preactor 和 Reactor 模型
 
 IO多路复用
 
-Linux如何解决内存碎片和外存碎片？
+Linux TCP/IP协议栈实现
 
 Boost库中轮子：asio库(Proactor网络库)，Coroutine库(C++协程库)，LockFree库(lock free的queue)，SpinLock(自旋锁)，Boost.Asio+threadpool 模型
 
@@ -125,7 +135,7 @@ main函数执行va_list va_start va_arg va_end等变量的理解
 
 
 
-OS+Network
+OS[细读CSAPP+LAB]+Network[TCP/IP]+[MIT6.824](https://zhuanlan.zhihu.com/p/110168818)
 
 
 
