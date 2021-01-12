@@ -1,47 +1,4 @@
-#### 一. 五种IO网络模型
-
-网络IO用户空间和内核空间，比如发生IO操作read时，会经历两个阶段：
-
-- 等待数据准备就绪
-- 将数据从内核copy到进程/线程中。
-
-因以上两个阶段的不同，出现多种网络IO模型。
-
-##### 1.  阻塞IO（blocking IO）
-
-linux中，默认情况下，所有的socket都是blocking，如下图，等待数据阶段，整个进程会被阻塞，直到数据准备，将数据从内核copy到用户空间，然后内核返回结果，用户进程才会解除blocking状态，重新运行。几乎所有的IO结果都是阻塞型的。
-
-<img src="..\pic\blocking_io.png" alt="blocking_io" style="zoom:100%;" />
-
-##### 2.  非阻塞IO (non-blocking IO)
-
-可以将socket设置为NON-BLOCKING，使其变为非阻塞，如下图，用户进程read时，如果没有数据，则直接返回，不会阻塞用户进程。但是，用户进程需要不断的询问kernel数据是否准备好(很耗CPU)。（recv return， > 0 接收数据完毕(字节数)，0 连接正常断开，-1 and errno == EAGAIN recv还没有执行完成）。`fcntl(fd, F_SETFL, O_NONBLOCK); // 设置为非阻塞`
-
-<img src="..\pic\nonblocking_io.png" alt="nonblocking_io" style="zoom:60%;" />
-
-##### 3. 多路复用IO (IO multiplexing)
-
-事件驱动IO (event driven IO)：select/epoll，使得单个进程/线程可同时监听多个网络连接的IO，
-
-PS：如果连接数不是很高的话，使用select/epoll的web server不一定比使用multi-threading + blocking IO的web server性能更好，可能延迟更大。因为前者需要两个系统调用(select/epoll + read)，而后者只有一个(read)。但是在连接数很多的情况下，select/epoll的优势就凸显出来了。
-
-<img src="..\pic\io_multiplexing.png" alt="io_multiplexing" style="zoom:50%;" />
-
-##### 4. 异步IO （Asynchronous IO）
-
-Linux下asynchronouse IO用在磁盘读写操作，而不是网络IO，如下图。kernel收到用户进程的aio_read之后会立即返回，不会阻塞，用户进程可以区干其它事情，当kernel数据准备好后，给用户进程发送一个信号，通知aio_read完成。
-
-<img src="..\pic\aysnchronous_io.png" alt="aysnchronous_io" style="zoom:50%;" />
-
-##### 5. 信号驱动IO (signal driven IO, SIGIO)
-
-一个信号绑定一个信号处理函数，当数据报准备好，内核就为进程产生一个SIGIO信号，随后在信号处理函数中调用read读取数据。
-
-<img src="D:\MyGit\Linux-C-Learn\pic\sigio.png" alt="sigio" style="zoom:60%;" />
-
-
-
-#### 二.  Reactor和Proactor模型
+#### Reactor和Proactor模型
 
 对于高并发编程，网络连接上的消息处理分为两个阶段：1. 等待消息准备好；2. 消息处理
 
