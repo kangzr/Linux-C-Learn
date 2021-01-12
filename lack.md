@@ -123,11 +123,57 @@ C语言如何实现多态  Done
 
 
 
+#### Wechat Blog
+
+1.网络专题：
+
+《计算机网络》《TcpIp详解卷一》《UNP》《网络怎么连接》
+
+网络IO模型
+
 Preactor 和 Reactor 模型
 
 IO多路复用
 
-Linux TCP/IP协议栈实现
+TCP/IP知识点总结以及协议栈实现
+
+Linux网络接收全过程
+
+基于Protobuf RPC实现原理
+
+
+
+
+
+2.操作系统专题：
+
+《深入连接计算机系统》
+
+《内存管理机制》
+
+
+
+3.数据库专题：
+
+分布式数据库 MIT
+
+
+
+4.算法和数据结构
+
+
+
+5.源码专题
+
+
+
+6.微服务专题
+
+
+
+
+
+
 
 Boost库中轮子：asio库(Proactor网络库)，Coroutine库(C++协程库)，LockFree库(lock free的queue)，SpinLock(自旋锁)，Boost.Asio+threadpool 模型
 
@@ -140,6 +186,8 @@ OS[细读CSAPP+LAB]+Network[TCP/IP]+[MIT6.824](https://zhuanlan.zhihu.com/p/1101
 
 
 ---
+
+
 
 终极目标
 
