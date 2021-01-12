@@ -29,7 +29,7 @@ linux中socket默认blocking，从下图可以看出，用户进程全程阻塞�
 
 图中recvfrom 返回值含义：
 
-- EWOULDBLOCK, 无数据
+- error of EWOULDBLOCK, 无数据
 - 大于0，接收数据完毕，返回值即收到的字节数
 - 等于0，连接已经正常断开
 - 等于-1，errno==EAGAIN表示recv操作未完成，errno!=EAGAIN表示recv操作遇到系统错误errno.
@@ -82,9 +82,11 @@ POSIX中提供了异步IO的接口aio_read和aio_write，如下图，内核收�
 
 以下为Richard Stevens对同步和异步IO的描述，可以把I/O operation是否阻塞看作为两者的区别。
 
-> A synchronous I/O operation causes the requesting process to be blocked until that I/O operation completes;
+> POSIX defines these two terms as followers:
 >
-> An asynchronous I/O operation does not cause the requesting process to be blocked;
+> - A synchronous I/O operation causes the requesting process to be blocked until that I/O operation completes;
+>
+> - An asynchronous I/O operation does not cause the requesting process to be blocked;
 
 还有一个概念需要区分：异步IO和IO异步操作，IO异步操作其实是属于同步IO模型。
 
