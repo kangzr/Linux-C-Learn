@@ -129,11 +129,11 @@ C语言如何实现多态  Done
 
 《计算机网络》《TcpIp详解卷一》《UNP》《网络怎么连接》
 
-网络IO模型
+**1. 网络IO模型 DONE**
+
+**2. IO多路复用**
 
 Preactor 和 Reactor 模型
-
-IO多路复用
 
 TCP/IP知识点总结以及协议栈实现
 

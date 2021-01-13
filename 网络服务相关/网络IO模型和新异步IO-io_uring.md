@@ -130,6 +130,7 @@ int io_uring_setup(u32 entries, struct io_uring_params *p);
 // IO提交的做法是找到一个空闲的 SQE，根据请求设置 SQE，并将这个 SQE 的索引放到 SQ 中
 // SQ 是一个典型的 RingBuffer，有 head，tail 两个成员，如果 head == tail，意味着队列为空。
 // SQE 设置完成后，需要修改 SQ 的 tail，以表示向 RingBuffer 中插入一个请求。
+/* * initiate and/or complete asynchronous I/O * * io_uring_enter() is used to initiate and complete I/O using the shared submission and completion * queues setup by a call to io_uring_setup(2). A single call can both submit new I/O and wait for * completions of I/O initiated by this call or previous calls to io_uring_enter(). */
 int io_uring_enter(unsigned int fd, unsigned int to_submit,
                 unsigned int min_complete, unsigned int flags,
                 sigset_t *sig);
