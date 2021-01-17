@@ -264,7 +264,7 @@ int epoll_wait(int epid, struct epoll_event *events, int maxevents, int timeout)
 }
 ```
 
-#### ep0ll_event_callback
+#### epoll_event_callback
 
 服务器在以下5种情况会调用epoll_event_callback（就是将eventpoll所指向的红黑树的节点插入到双向链表中。）
 
