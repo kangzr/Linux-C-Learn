@@ -323,3 +323,20 @@ list open files，列出当前系统打开文件的工具；一切皆文件
 ```shell
 lsof -i:9999
 ```
+
+
+
+##### 查看物理CPU个数，核数
+
+```shell
+#总核数 = 物理CPU个数 X 每颗物理CPU的核数 
+
+# 查看物理CPU个数  (2)
+cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l
+# 查看每个物理CPU中core的个数（即核数）(8核)
+cat /proc/cpuinfo | grep "cpu cores" | uniq
+
+# 查看物理内存  100G
+cat /proc/meminfo
+```
+
