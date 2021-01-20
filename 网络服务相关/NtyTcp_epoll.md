@@ -224,8 +224,6 @@ int epoll_ctl(int epid, int op, int sockid, struct epoll_event *event) {
 
 #### epoll_wait
 
-
-
 ```c
 // 到双向链表中取相关的事件通知
 int epoll_wait(int epid, struct epoll_event *events, int maxevents, int timeout) {
@@ -273,8 +271,6 @@ int epoll_wait(int epid, struct epoll_event *events, int maxevents, int timeout)
 - 客户端close()断开连接，服务器处于FIN_WAIT_1和FIN_WAIT_2状态时
 - 客户端send/write()数据，服务器可读时
 - 服务器可以发送数据时
-
-
 
 ```c
 int epoll_event_callback(struct eventpoll *ep, int sockid, uint32_t event) {
