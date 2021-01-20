@@ -760,3 +760,79 @@ recv阻塞进程，进程进入等待队列，不占用CPU资源
 
 
 
+[Linux数据包的接收与发送过程](https://morven.life/notes/networking-1-pkg-snd-rcv/)
+
+[网络包传输参考](https://plantegg.github.io/2019/05/08/%E5%B0%B1%E6%98%AF%E8%A6%81%E4%BD%A0%E6%87%82%E7%BD%91%E7%BB%9C--%E7%BD%91%E7%BB%9C%E5%8C%85%E7%9A%84%E6%B5%81%E8%BD%AC/)
+
+[网络数据包](https://juejin.cn/post/6844903826814664711)
+
+
+
+发送的时候数据在用户空间的内存中，当调用send()或者write()方法的时候，会将待发送的数据按照MSS进行拆分，然后将拆分好的数据包拷贝到内核空间的发送队列，这个队列里面存放的是所有已经发送的数据包，对应的数据结构就是sk_buff，每一个数据包也就是sk_buff都有一个序号，以及一个状态，只有当服务端返回ack的时候，才会把状态改为发送成功，并且会将这个ack报文的序号之前的报文都删掉
+
+**一个数据包对应一个sk_buff结构**
+
+linux内核中，每一个网络数据包都被切分为一个个的sk_buff，sk_buff先被内核接收，然后投递到对应的进程处理，进程把skbcopy到本tcp连接的sk_reeceive_queue中，然后应答ack。
+
+tcp socket的发送缓冲区实际上是一个结构体**struct sk_buff**的队列，我们可以把它称为**发送缓冲队列**，分配一个struct sk_buff是用于存放一个tcp数据报
+
+
+
+驱动程序将内存中的数据包转换成内核网络模块能识别的`skb`(socket buffer)格式，然后调用`napi_gro_receive`函数
+
+```c
+// net/core/dev.c
+// 将数据包sk_buff加入到input_pkt_queue队列中
+int netif_rx(struct sk_buff *skb)
+{
+    int this_cpu;
+    struct softnet_data *queue;
+    queue = &__get_cpu_var(softnet_data);  // 每个cpu对应一个softnet_data
+    __get_cpu_var(netdev_rx_stat).total++;
+    // 数据包放入input_pkt_queue中，如果满了，则丢弃
+    if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
+        if(queue->input_pkt_queue.qlen)
+            if(queue->throttle)
+                goto drop;
+enqueue:
+        __skb_queue_tail(&queue->input_pkt_queue, skb);
+        ...
+    }
+}
+
+// cpu软中断，处理自己input_pkt_queue中的skb
+// include/linux/netdevice.h
+static inline int netif_rx_ni(struct sk_buff *skb)
+{
+    int err = netif_rx(skb);
+    if (softirq_pending(smp_processor_id()))
+        do_softirq();
+    return err;
+}
+
+// napi_gro_receive 调用 __netif_receive_skb_core函数
+// 紧接着CPU会根据是不是有AF_PACKET类型的socket(原始套接字)，有的话，copy一份数据给它(tcpdump抓包就是抓的这里的包)
+// net/core/dev.c
+int netif_receive_skb_core(struct sk_buff *skb)
+{
+    int ret;
+    ret = __netif_receive_skb_one_core(skb, false);
+    return ret;
+}
+
+static int __netif_receive_skb_one_core(struct sk_buff *skb, bool pfmemalloc)
+{
+    ret = __netif_receive_skb_core(skb, pfmemalloc, &pt_prev);
+}
+
+static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc, struct packet_type **ppt_prev)
+{
+    
+}
+
+// 将数据包交给内核协议栈处理
+// 当内存中的所有数据包被处理完成后(poll函数执行完成)，重启网卡的硬中断，下此网卡再收到数据的时候就会通知CPU
+
+
+```
+

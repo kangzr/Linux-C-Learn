@@ -293,6 +293,31 @@ MTU(以太网数据帧长度46~1500字节): 最大传输单元 (MTU = MSS + TCP�
 
    - tcp_abort_on_overflow=0，全连接队列满后，服务端会丢掉客户端发过来的ACK，随后重传SYN+ACK。
 
+   ```c
+   // accept队列去backlog和somaxconn的小者，syn队列大小也跟这两个参数相关，且syn队列略大于accept队列
+   int sysctl_somaxconn = SOMAXCONN;
+   asmlinkage long sys_listen(int fd, int backlog)
+   {
+       struct socket *sock;
+       int err;
+       if ((sock = sockfd_lookup(fd, &err)) != NULL) {
+           // 取小者
+           if ((unsigned) backlog > sysctl_somaxconn)
+               backlog = sysctl_somaxconn;
+           err = security_socket_listen(sock, backlog);
+           if (err) {
+               sockfd_put(sock);
+               return err;
+           }
+           err=sock->ops->listen(sock, backlog);
+           sockfd_put(sock);
+       }
+       return err;
+   }
+   ```
+
+   
+
    半连接队列和全连接队列如下图：
 
    <img src="D:\MyGit\Linux-C-Learn\pic\tcp_syn_queue.png" alt="tcp_syn_queue" style="zoom:75%;" />
@@ -434,6 +459,8 @@ TCP可靠性表现在：
 
    流量控制做的事情就是，如果接收缓冲区已满，发送端应该停止发送数据，为了控制发送端速率，接收端会告知客户端自己接收窗口rwnd，也就是接收缓冲区中的空闲部分。
 
+   
+
    1. **滑动窗口工作原理**
 
       发送端维护一个跟接收端大小一样的发送窗口，窗口内的可发，窗口外的不可，窗口在发送序列上不断后移。如下图：
@@ -574,6 +601,24 @@ TCP可靠性表现在：
 **短连接**：Client向Serer发送消息，Server回应Client，一次读写完成，双方都可发起close操作。适用于web网站
 
 **长连接**：Client与Server完成一次读写后，双方不会主动关闭连接。**靠心跳维持**，需要一定的系统开销，适用于频繁交互的场景，如即时通信工具：微信，游戏等
+
+
+
+##### 发送缓冲区和接收缓冲区
+
+
+
+用户态进程调用描述符上的read，它会导致内核从其接收缓冲区中删除数据，并将该数据复制到此进程调用所提供的缓冲区中。
+
+用户态调用write时，会将数据从用户提供的缓冲区复制到内核写入队列，内核再将数据从写入队列复制到NIC中。
+
+首先网卡将接收到的数据放到内核缓冲区，内核缓冲区存放的数据根据TCP信息将数据移动到具体的某一个TCP连接上的接收缓冲区内，也就是TCP接收滑动窗口内，然后应用程序从TCP的接收缓冲区内读取数据，如果应用程序一直不读取，那么滑动窗口会变小，直至为0
+
+TCP发给对方的数据，对方在收到数据时必须给矛确认，**只有在收到对方的确认时，本方TCP才会把TCP发送缓冲区中的数据删除**。
+
+UDP因为是不可靠连接，不必保存应用进程的数据拷贝，应用进程中的数据在沿协议栈向下传递时，以某种形式拷贝到内核缓冲区，**当数据链路层把数据传出**后就把内核缓冲区中数据拷贝删除。**因此它不需要一个发送缓冲区**。
+
+tcp socket的发送缓冲区实际上是一个结构体**struct sk_buff**的队列，我们可以把它称为**发送缓冲队列**，分配一个struct sk_buff是用于存放一个tcp数据报
 
 
 
