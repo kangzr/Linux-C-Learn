@@ -137,6 +137,70 @@ int main(){
 
 
 
-http, ftp等使用TCP，确保可靠性；而视频、在线游戏多使用UDP，确保实时性。 (有的游戏使用kcp协议，它是一个快速可靠协议，**能以比TCP浪费10-20%的带宽为代价**，**换取平均延迟降低30-40%，且最大延迟降低三倍的效果。**
+---
 
-TCP为流量设计，讲究充分利用带宽，KCP为流速设计，10%-20%带宽浪费的代价换取了比 TCP快30%-40%的传输速度。TCP信道是一条流速很慢，但每秒流量很大的大运河，而KCP是水流湍急的小激流
+
+
+DNS实现与Dpdk实现
+
+ethernet0.virtualDev  "vmxnet3"  （把e1000千兆网卡 改成vmxnet3，因为e1000不支持多队列网卡）
+
+ethernet0.wakeOnPcktRev True
+
+
+
+多队列网卡：一块网卡可以支持多个数据同时进来；网卡可以并行的处理数据
+
+nginx 每个进程对应一个cpu; 每个网卡对应一个cpu；网络请求会均分到每个网卡上； 提升cpu性能
+
+
+
+多队列网卡对nginx的帮助？
+
+worker_cpu_affinit  
+
+
+
+多队列网卡可以提升网卡的性能，提升cpu的性能
+
+
+
+hugepage巨页：提升效率，减少磁盘到内存的置换次数
+
+内存和磁盘置换大小默认为4K，通过修改hugepage可以修改这个值
+
+default_hugepagesz=1G hugepagesz=2M hugepages=1024
+
+
+
+dpdk版本不同，接口差异很大
+
+
+
+setup    x86_64-native-linux-gcc
+
+mac-->vmware
+
+
+
+编译好后：
+
+1. insert module
+2. set hugepage
+3. 绑定网卡比如eth0
+
+
+
+
+
+
+
+dpdk与网卡绑定后，网卡就不会出现在"ifconfig"显示的网卡中，这张网卡没有了ip和mac地址
+
+**因此需要实现一个网卡driver**
+
+
+
+
+
+网卡数据从/dev/kni  过来
