@@ -1,11 +1,5 @@
 [Linux网络包发送参考](https://zhuanlan.zhihu.com/p/256428917) + [Epoll实现原理](https://blog.csdn.net/songchuwang1868/article/details/89877739?utm_source=app)+Linux源码，把网络包传输epoll实现翻个底朝天?
 
-#### 1. TCP/IP网络分层模型
-
-<img src="../pic/linux_net_arch.png" alt="计算机体系" style="zoom:50%;" />
-
-TCP/IP五层模型如上图， 中间三层在属于内核。链路层协议通过网卡驱动来实现，应用层通过socket接口来访问内核数据，内核和网络设备驱动通过中断方式来处理，当有数据到达时，会给CPU相关引脚出发一个电压变化（硬中断），通知其处理数据。Linux2.4版本后软中断通过`ksoftirqd`内核线程处理，软中断是通过给内存中的一个变量的二进制值以通知软中断处理程序。
-
 
 
 #### 2. Linux网络包接受过程

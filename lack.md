@@ -117,9 +117,13 @@ python协程+多线程
 
 **4. Preactor 和 Reactor 模型**
 
-Linux网络接收全过程
+5.通过抓包分析网络数据包传输流程tcpdump/wireshark/packetdrill
 
-用户态协议栈
+6.Linux网络接收全过程
+
+7.用户态协议栈
+
+
 
 
 
