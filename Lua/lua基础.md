@@ -539,24 +539,3 @@ typedef char *va_list;
 // 清空va_list可变参数列表
 #define va_end(list) ( list = (va_list)0 )
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -494,41 +494,6 @@ print("window=====key", window.a, "window1===key", window1.a
 
 
 
-
-
-
-
-
-
-
-
-
-
 ##### 全局变量_G
 
 在Lua脚本层，Lua将所有的全局变量保存在一个常规的table中，这个table被称为全局环境，并将这个table保存在一个全局变量_G中，也就是在脚本中可以用`_G`获取这个全局table，并且`_G._G == _G`，默认情况下，Lua在全局环境`_G`中添加了标准库比如math，pairs等函数
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
