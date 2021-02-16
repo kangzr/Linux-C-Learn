@@ -1,5 +1,7 @@
 #### 前言
 
+《Programming In Lua》Part II
+
 最近看学习skynet框架，skynet中一般采用Lua来实现业务逻辑，也可用Lua来实现一些服务。因此准备学习一下Lua这门脚本语言，挑了《Programming in Lua》这本开始啃了起来，并且啃的英文原版。这里主要是将一些值得mark的知识点总结记录了下来，一来加深理解，而来便于后续温故知新。不得不说这本书真的很赞，入门看它就够了，遇到一些不懂的接口，[查接口文档即可](http://www.lua.org/manual/5.3/manual.html#lua_call)。
 
 
