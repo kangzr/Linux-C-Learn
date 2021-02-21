@@ -876,20 +876,69 @@ consumer(producer())
 
 
 
-##### Coroutines as Iterators
-
 ##### Event-Driven Programming
+
+在异步的库上运行同步的代码
+
+```lua
+local lib = require "async-lib"
+function run (code)  -- 同步代码
+    local co = coroutine.wrap(function()
+        code()
+        lib.stop()  -- event loop结束
+    end)
+    co()  -- 启动协程
+    lib.runloop()  -- 启动event loop
+end
+function putline (stream, line)
+    local co = coroutine.running()  -- 调用协程
+    local callback = (function () coroutine.resume(co) end)
+    lib.writeline(strream, line, callback)
+    coroutine.yield()
+end
+function getline (stream, line)
+    local co = coroutine.running()  -- 调用协程
+    local callback = (function (line) coroutine.resume(co, line) end)
+    lib.readline(stream, callback)
+    local line = coroutine.yield()
+    return line
+end
+```
+
+
 
 ##### Exercise
 
-
-
-
+```lua
+-- 1. 使用生产者驱动式设计重写24.2节中生产者-消费者的示例，其中消费者是协程，而生产者是主线程
+local function producer(consumer)
+    while true do
+        local x = io.read()
+        coroutine.resume(consumer,x)
+    end
+end
+local consumer = coroutine.create(function (x)
+    print(x) --the first time into this func
+    while true do
+        local val = coroutine.yield()
+        print(val)
+    end
+end)
+producer(consumer)
+```
 
 
 
 #### 7. Relfection（反射）
 
+反射机制：程序具有检查和修改其执行流程的能力。动态语言天然支持一些反射特性：环境允许在运行时检查全局变量，`type`和`pairs`函数允许在运行时检查和遍历不了解的数据结构等。但是仍然有些没法做到：程序不能检查其局部变量，不能跟踪函数的执行，函数没法知道它的调用者等等，这些在debug库得以实现。
 
+debug库由两种类型函数组成：`introspective functionsh`和`hooks`，前者允许我们可以检查正在运行程序的一些状态：函数栈，当前执行哪一行，局部变量的值等等。后者允许我们跟踪一个程序的执行流程。
 
+##### Introspective Facilities
 
+主要的`introspective function`为`getinfo`，其第一个参数可为一个函数或者stack level, 返回这个函数的一些数据。
+
+##### Access local variables
+
+`debug.getlocal`: 第一个参数为stack level, 第二个参数为变量索引，返回改变量的当前名称和值。
