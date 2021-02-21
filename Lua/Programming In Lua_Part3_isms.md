@@ -613,21 +613,278 @@ setmetatable(_G, {
 
 
 
-##### Non-Global Environments
+##### Non-Global Environments and _ENV
 
+Lua中全局变量没有必要真的是全局的，其实Lua压根就没有全局变量。把没有申明为`local`的变量定义为`free`变量，Lua把代码块中所有`free`变量放在`_ENV`表中，如下：
 
+```lua
+-- x和y就是free变量
+local z = 10
+x = y + z
 
+-- 等同于
+local z = 10
+_ENV.x = _ENV.y + z
+```
 
+`_ENV`并不是一个全局变量，Lua中所有的代码块都可视为匿名函数，而这个`_ENV`就是这个匿名函数的上值(up-value)，当我们`load`一个Lua代码块(chunk)时，会使用全局环境来初始化`_ENV`表，如下：
 
+```lua
+local _ENV = the global environment
+return function (...)
+    local z = 10
+    _ENV.x = _ENV.y + z
+end
+```
 
+对Lua中全局变量的处理总结如下：
+
+- 编译时会在代码块匿名函数外创建一个局部变量`_ENV`
+- 编译器会把所有的`free`变量放入`_ENV`中
+- 函数`load or loadfile`用全局环境来初始化代码块的第一个上值(up-value)
+
+Lua交互模式下，每一行都有一个不同的`_ENV`，可以使用`do .. end`来运行一个代码块（沙盒环境），可以通过让`_ENV = nil`来使得代码块中之后对全局变量的访问都失效，如下：
+
+```lua
+-- 将_ENV置为nil后，全局变量都无法再访问
+-- 而print, sin声明为了局部变量，是没有放在_ENV表中的，因此可用
+local print, sin = print, math.sin
+_ENV = nil
+print(13)  -- 13
+print(sin(13))  -- 0.42
+print(math.cos(13))  -- error!!!
+```
+
+`_G`和`_ENV`虽然指向相同的table，但是他们是不同的实体，`_ENV`是一个局部变量，代表的是当前的环境，代码块中所有对“全局”变量的访问都是访问`_ENV`。`_G`代表的是全局的环境。可以随时改变`_ENV`，如下：
+
+```lua
+_ENV = {}  -- 清空ENV
+a = 1  -- a放入ENV中
+print(a)  -- error, 因为ENV表中找不到print
+
+-- 如下理解_G和_ENV的区别
+a = 15  -- 创建一个全局变量，可以同时通_ENV和_G访问
+_ENV = {g = _G}  -- 改变当前的环境ENV，此时变量a不在_ENV中
+a = 1  -- 在_ENV中创建一个新的字段，但是不会_G中a的值不会改变
+g.print(_ENV.a, g.a)  -- 1  15
+
+-- 通过元表可避免意外修改_G中变量
+a = 1
+local newgt = {}
+setmetatable(newgt, {__index = _G})
+_ENV = newgt
+print(a) -- 可以访问到print 和 a，任何操作都会newgt新表中
+```
+
+##### Environments and Modules
+
+避免污染全局变量的模块实现：
+
+```lua
+-- 1 这一种方式没法访问全局变量，很不方便
+local M = {}
+_ENV = M  -- 将M赋值给_ENV，这样ENV就没有其它全局变量
+function add (c1, c2)
+    return new(c1.r + c2.r, c1.i + c2.i)
+end
+
+-- 2 把我们要用的函数拧出来放到local中，再将_ENV置为nil
+local M = {}
+local sqrt = math.sqrt
+local io = io
+_ENV = nil
+```
+
+##### Exercise
+
+```lua
+-- 1 解释下面代码的细节
+local foo  -- 申明局部变量
+-- do end 构造沙盒环境
+do
+    -- 将_ENV指向的全局变量表赋值一个临时变量_ENV
+    local _ENV = _ENV
+    -- 打印_ENV.X，此时_ENV指向全局表
+    function foo() print(X) end
+end
+-- 将_ENV.X值设为13
+X = 13
+-- 将当前作用域中_ENV表引用清空
+_ENV = nil
+-- foo处于另外沙盒环境，不受当前_ENV影响，可正常打印13
+foo()
+-- _ENV为nil，因此X访问出错
+X = 0
+```
 
 
 
 #### 5. Garbage（垃圾回收）
 
+Lua中主要的垃圾回收机制：Weak Table, finalizers, and function `collectgarbage`
+
+##### Weak Tables（弱表）
+
+垃圾回收器无法判断那些我们认为的垃圾，比如stack，通过一个数组和一个top索引值来实现，当pop元素时，只减少top的索引值，则栈顶元素还在数组中，垃圾回收器不会认为这是垃圾，而在我们看来它就是垃圾。因此，需要我们将其置为nil，才能被回收。
+
+`Weak tables`其实就是告诉Lua这个引用的收回不受保护。因此如果所有对这个对象的引用都是弱引用，垃圾回收器会回收这个对象并删掉所有的弱引用。Lua通过`Weak table`来实现弱引用。
+
+有三种类型的弱表: 弱键(weak key), 弱值(weak value), 弱键和弱值(both keys and values are weak)，通过元表的`__mode`字段来设置弱表的类型，三种情况分别对应`k`, `v`, `kv`。
+
+```lua
+a = {}
+mt = {__mode = "k"}
+setmetatable(a, mt)  -- a就是一个有弱key的表
+key = {}  -- 第一个key
+a[key] = 1
+key = {}  -- 创建第二个key
+a[key] = 2
+collectgarbage() -- 第一个key会从a中移除掉
+```
+
+不管什么类型，当key或者value被回收后，其对应的entry都会从table中删掉。
+
+meorization机制：`load`是一个很耗的操作，因此可以把其结果记录下来，每次`load`前会先判断是否在记录中，如果在，则直接使用，不需要再`load`，如果不在，则调用`load`并把结果记录。
+
+但是这种机制有一个缺点，一旦记录下`load`的结果，就会一直占用内存，哪怕之后不再用到，久而久之，必然耗尽内存。因此可以有弱表来优化这种机制，对于一些不再用的，直接交给垃圾回收机制处理，一个color的例子如下：
+
+```lua
+local results = {}
+setmetatable(results, {__mode = "v"})  -- 弱值
+function createRGB (r, g, b)
+    local key = string.format("%d-%d-%d", r, g, b)
+    local color = results[key]
+    if color == nil then
+        color = {red = r, green = g, blue = b}
+        results[key] = color
+    end
+    return color
+end
+```
+
+
+
+##### Revisiting Tables with Default Values
+
+##### Ephemeron Tables
+
+
+
+##### Finalizers
+
+`finalizer`是一个跟对象相关的函数，当对象将要被回收时被调用。Lua通过元方法`__gc`来实现`finalizers`，如下：
+
+```lua
+o = {x = "hi"}
+setmetatable(o, {__gc == function (o) print(o.x) end})
+o = nil
+collectgarbage()  --> hi
+```
+
+注意`__gc`添加必须在setmetatable之前，如下：
+
+```lua
+-- 1 __gc没有设置成功
+o = {x = "hi"}
+mt = {}
+setmetatable(o, mt)
+mt.__gc = function (o) print(o.x) end
+o = nil
+collectgarbage()   ---> print nothing o并没有被回收
+
+-- 2 __gc先占据一个field，也可以
+o = {x = "hi"}
+mt = {__gc = true}
+setmetatable(o, mt)
+mt.__gc = function (o) print(o.x) end
+o = nil
+collectgarbage()  --> hi
+```
+
+
+
+##### The Garbage Collector
+
+标记清除分为四步：`mark`, `cleaning`, `sweep`, `finalization`.
+
+mark: 从根节点开始，标记Lua能够访问到的节点为alive。
+
+cleaning: 处理finalizers和弱表，遍历所有finalization的对象中没有被标记为alive的对象，放入另一个列表中，用于`finalization`阶段。然后遍历弱表，将其中key或者value没有被标记为alive的entry从table中移除。
+
+sweep: 遍历所有的Lua对象，回收没有被标记为alive的对象
+
+finalization: 针对cleaning阶段放入列中的对象，调用其`__gc`元方法。
+
+Lua 5.0在gc时需要暂停主程序，Lua5.1推出了一种增量gc的方法，不需要停止正在运行的程序，一步一步来来gc。
+
 
 
 #### 6. Coroutines（协程）
+
+协程跟线程类似，它是一条执行的流程，有自己的栈、局部变量，指令指针，并且和其它线程共享全局变量。协程和线程的主要区别在于多线程程序是可以并行运行的，而协程同时只能有一个在运行，其它的挂起，因此协程之间是协作关系（collaborative）。
+
+##### Coroutine Basics
+
+Lua把所有协程相关的函数放在`coroutines`表中，`create`创建新协程，传入协程执行的方法，返回一个线程来代表新的协程，如下：
+
+```lua
+co = coroutine.create(function () print("hi") end)
+print (type(co))  -- thread
+```
+
+协程有四种状态：挂起(suspended)，运行(running)，正常(normal)，死亡(dead)，可以使用`coroutine.status`来查看但协程的状态。协程创建的初始状态为挂起，通过`coroutine.resume`来启动协程，将其状态改为运行状态。正在运行的协程可以通过`coroutine.yield`来交出执行权，并切换至挂起状态，等待下一次`resume`。
+
+通常可以通过`resume-yield`对来交换数据，如下：
+
+```lua
+co = coroutine.create(function (a, b)
+    	coroutine.yield(a + b, a - b)  -- yield把数据返回给resume
+    end)
+print(coroutine.resume(co, 20, 10))  -- true 30 10
+```
+
+协程一个典型的例子就是生产者-消费者问题，如下：
+
+```lua
+function receive (prod)
+    local status, value = coroutine.resume(prod)
+    return value
+end
+
+function send (x)
+    coroutine.yield(x)
+end
+
+function producer ()
+    return coroutine.create(function ()
+        while true do
+            local x = io.read()
+            send(x)
+        end
+    end)
+end
+
+function consumer (prod)
+    while true do
+        local x = receive(prod)
+        io.write(x, "\n")
+    end
+end
+
+consumer(producer())
+```
+
+
+
+##### Coroutines as Iterators
+
+##### Event-Driven Programming
+
+##### Exercise
+
+
+
+
 
 
 

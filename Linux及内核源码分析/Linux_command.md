@@ -340,3 +340,52 @@ cat /proc/cpuinfo | grep "cpu cores" | uniq
 cat /proc/meminfo
 ```
 
+
+
+
+
+
+
+日志格式
+
+````
+[g55-gs21-10015.i.nease.net] Feb  4 09:07:00 g55-gs21-10015 supervisord: game351 2021-02-04 09:07:00,044384 - game351 - Avatar - INFO - 乄清丨欢丷(V56m5BM4ICQe7aOC) updateSubmitItemScore addValue(10), submitItemScore(10)
+````
+
+取出要用信息
+
+```shell
+# awk -F指定分隔符，默认空格
+$ cat g55_logtail.log | awk '{print $1, $17, $20}'
+[g55-gs17-10015.i.nease.net] 魑心(Xe87Eg2tmBBGLOYL) submitItemScore(10)
+```
+
+去掉括号，留服务器信息，名字，ID，对应数据
+
+```shell
+$ awk -F"[()]" '{print$1,$2,$4}'
+[g55-16066-gm-35397fce-product/10.211.199.230] 温酒相随丶 X9JBEcfx0CDJOZDj 4900
+```
+
+按照第n列进行过滤，(按照第n列进行排序)
+
+```shell
+# 取出第4列大于10000, 并按照第4列进行排序， 倒序使用(sort -k4,4nr)
+awk '$4>10000{print$1,$2,$4}' | sort -k4  
+```
+
+根据指定的列去重
+
+```shell
+# 根据第3列去重
+sort -k3,3 -u
+```
+
+
+
+```shell
+cat g55_logtail.log | awk '{print$1,$17,$20}' | awk -F"[()]" '$4>10000{print$1,$2,$4}' | sort -k4 | sort -k3,3 -u
+```
+
+
+
