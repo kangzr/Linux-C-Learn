@@ -6,7 +6,7 @@
 
 #### 1. An Overview of the C API
 
-Lua为嵌入式的和可扩展的语言，相应的C和Lua之间有两种交互方式，第一种在C中调用Lua的库，第二种Lua中调用C的库。应用代码（Application Code）和库代码（Lib Code）同Lua交流使用相同的API，就是所谓的C_API，C_API是一组能和Lua进行交互的函数、常量和类型。Lua独立的解析器(lua.c)为应用代码的实现，标准库(lmathlih.c等)提供了库代码的实现，可以借鉴。
+Lua是一门嵌入式的和可扩展的语言，C和Lua之间有两种交互方式，第一种在C中调用Lua的库函数，第二种Lua中调用C的库函数。应用代码（Application Code）和库代码（Lib Code）同Lua交流使用相同的API，就是所谓的C_API，C_API是一组能和Lua进行交互的函数、常量和类型。Lua独立的解析器(lua.c)为应用代码的实现，标准库(lmathlih.c等)提供了库代码的实现，可以学习借鉴。
 
 
 
@@ -72,7 +72,7 @@ int lua_checkstack (lua_State *L, int sz);
 
 // auxiliary laxulib.h
 // 如果出错，会抛出错误信息
-void luaL_checkstakc(lua_State *L, int sz, const char *msg)
+void luaL_checkstack(lua_State *L, int sz, const char *msg)
 ```
 
 
@@ -353,31 +353,16 @@ void call_va (lua_State *L, const char *func, const char *sig, ...) {
     va_list vl;
     int narg, nres;
     va_start(vl, sig);
-    // 函数入栈
-    lua_getglobal(L, func);
-    // 参数入栈
-    for (narg = 0; *sig; narg++) {
+    lua_getglobal(L, func);  // 函数入栈
+    for (narg = 0; *sig; narg++) {  // 参数入栈
         luaL_checkstack(L, 1, "too many args");
         switch (*sig++) {
             case 'd':
                 lua_pushnumber(L, va_arg(vl, double));
                 break;
-            case 'i':
-                lua_pushinteger(L, va_arg(vl, int));
-                break;
-            case 's':
-                lua_pushstring(L, va_arg(vl, char*));
-                break;
-            case '>':
-                goto endargs;
-            case 'b':
-                lua_pushboolean(L, va_arg(vl, int));
-                break;
-            default:
-                error(L, "invalid option (%c)", *(sig - 1));
+            // 其他类型类似
         }
     }
-    endargs:
     nres = strlen(sig);  // 返回结果个数
     if (lua_pcall(L, narg, nres, 0) != 0)
         error(L, "error calling '%s': %s", func, lua_tostring(L, -1));
@@ -387,39 +372,9 @@ void call_va (lua_State *L, const char *func, const char *sig, ...) {
             case 'd': {
                 int isnum;
                 double n = lua_tonumber(L, nres, &isnum);
-                if (!isnum)
-                    error(L, "wrong result");
                 *va_arg(vl, double*) = n;
                 break;
-            }
-            case 'i':
-                {
-                    int isnum;
-                    int n = lua_tointegerx(L, nres, &isnum);
-                    if(!isnum)
-                      error(L, "wrong result type");
-                    *va_arg(vl, int*) = n;
-                    break;
-                }
-            case 's':
-                {
-                    const char *s = lua_tostring(L, nres);
-                    if(s == NULL)
-                      error(L, "wrong result type");
-                    *va_arg(vl, const char **) = s;
-                    break;
-                }
-            case 'b':
-                {
-                    if(lua_isboolean(L, nres))
-                      error(L, "wrong result type");
-                    bool b = lua_toboolean(L,nres);
-                    *va_arg(vl, bool*) = b;
-                    break;
-                }
-            default:
-                error(L, "invalid option (%c)", *(sig - 1));
-            }
+            } // 其他类型类似
         }
         nres++;
     }
@@ -593,7 +548,6 @@ static reverse(lua_State* L) {
     for(int i = 1;i < n;i++) lua_insert(L, i);
     return n;
 }
-
 static const struct luaL_Reg mylib [] = {
     {"summation", summation},
     {"pack", pack},
