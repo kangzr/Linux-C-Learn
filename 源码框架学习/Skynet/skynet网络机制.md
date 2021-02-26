@@ -1,3 +1,15 @@
+服务模块要将数据，通过socket发送给客户端时，并不是将数据写入消息队列，而是通过管道从worker线程，发送给socket线程，并交由socket转发。
+
+
+
+
+
+
+
+
+
+
+
 [from](https://manistein.github.io/blog/post/server/skynet/skynet%E7%BD%91%E7%BB%9C%E6%9C%BA%E5%88%B6/)
 
 #### Listen整体流程

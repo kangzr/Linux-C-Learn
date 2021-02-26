@@ -1,6 +1,6 @@
 ### 一.  Skynet目录结构
 
-<img src="/Users/zhongrunkang/Desktop/Linux-C-Learn/pic/skynet_cont.png" alt="skynet_cont" style="zoom:50%;" />
+<img src="../pic/skynet_cont.png" alt="skynet_cont" style="zoom:50%;" />
 
 - skynet-src: c语言写的skynet核心代码
 - service-src: c语言编写的封装给Lua使用的服务，编译后生成的so文件在cservice中（如gate.so, harbor.so, logger.so, snlua.so）
