@@ -51,7 +51,7 @@ end
 
 上述迭代器（while循环）有一个缺点：每次开启一个新的循环都需要创建一个新的闭包。
 
-这种开销其实是可以避免的，我们可以使用`for`自己来保存迭代的状态。其通常会保存三个值：迭代器函数，不变状态和一个控制变量。`for`的用法如下
+而`for`循环可自己保存迭代的状态。其通常会保存三个值：迭代器函数，不变状态和一个控制变量。`for`的用法如下
 
 ```lua
 -- 如果下一个元素不为nil，执行body，并接着调用迭代器函数
@@ -77,9 +77,7 @@ end
 local function iter (t, i)
   i = i + 1
   local v = t[i]
-  if v then
-    return i, v
-  end
+  if v then return i, v end
 end
 
 function ipairs (t)
@@ -121,7 +119,7 @@ lines = {
 }
 ```
 
-如果使用`pairs`进行遍历，得到的结果是无序的，因为其使用`next`。因此需要用一个数组将table的key保存，然后对table进行排序，最后再打印，如下：
+若使用`pairs`进行遍历，得到的结果是无序的，因为其使用`next`。因此需要用数组将table的key保存，对该table排序后再打印，如下：
 
 ```lua
 function pairsByKeys (t, f)
@@ -180,9 +178,9 @@ end
 
 #### 2. Metatables and Metamethods（元表和元方法）
 
-当遇到未知操作时，元表允许我们改变值的行为，比如，使用元表，可以让两个table相加，当我们尝试对两个table a和b使用+时，`a + b`，会检查其中是否有元表，以及其元表是否有`__add`字段，如果有的话，就会调用相应的元方法。
+当遇到未知操作时，元表允许我们改变值的行为，比如，让两个table相加`a + b`，会检查其中是否有元表，及其元表是否有`__add`字段，有的话，就会调用相应的元方法。
 
-table默认是没有元表的，可以通过`setmetatable`来设置来改变一个table的元表
+table默认是没有元表的，可以通过`setmetatable`来设置一个table的元表，如下：
 
 ```lua
 t = {}
@@ -192,7 +190,7 @@ setmetatable(t, t1)
 print(getmetatable(t) == t1)  -- true
 ```
 
-字符串库给字符串设置了元表，其他类型的值是没有元表的
+字符串库给字符串默认设置了元表，其他类型的值是没有元表的
 
 ```lua
 print(getmetatable("hello"))  -- table: 0x80772e0
@@ -287,7 +285,7 @@ end
 
 ##### The __index metamethod
 
-之前提到，当我们访问table中不存在的字段时，其结果会是`nil`，但是不全对，实际上，解释器会去寻找元表中是否有`__index`元方法，如果没有当然返回`nil`，如果有的话，相应的元方法会提供结果。
+之前提到，当我们访问table中不存在的字段时，其结果会是`nil`，但不全对，实际上，解释器会去寻找元表中是否有`__index`元方法，如果没有当然返回`nil`，如果有的话，相应的元方法会提供结果。
 
 以窗口为例来说明`__index`的使用：
 
@@ -313,7 +311,7 @@ print(w.width) --> 100
 
 ##### The __newindex metamethod
 
-当尝试把一个值赋给table中不存在的key时，解释器会寻找`__newindex`对应的元方法，就会把赋值操作转换为调用`__newindex`对应的元方法。
+当把一个值赋给table中不存在的key时，解释器会寻找`__newindex`对应的元方法，把赋值操作转换为调用`__newindex`对应的元方法。
 
 Lua中提供了`rawget`和`rawset`两种方法，来禁止触发`__index`和`__newindex`的调用。
 
@@ -331,7 +329,7 @@ setDefault(tab, 0)  -- 设置其默认值为0
 print(tab.x, tab.z)  -- 10 0
 ```
 
-上述这种设置默认值的方法中，如果d中没有对应字段，那么优惠触发d的元表，这样效率很低，因此可以把默认值直接保存在table的字段中，如下：
+上述这种设置默认值的方法中，如果d中没有对应字段，会继续触发d的元表，效率很低，可以把默认值直接保存在表的字段中，如下：
 
 ```lua
 -- 把默认值保存在t中，就不会多次触发元表
@@ -435,7 +433,9 @@ function Account:withdraw (v)
 end
 ```
 
-创建一个Account的实例SpecialAccount：`SpecialAccount = Account:new()`, 接下来调用SpecialAccount的实例s：`s = SpecialAccount:new{limit=1000.00}`, 这三者关系可以理解为：s继承SpecialAccount，SpecialAccount继承Account, 如果调用s的某个方法，如果s中找不到就会去SpecialAccount中搜索，SpecialAccount中找不到就去Account中找。也可重定义Account中的方法：
+创建一个Account的实例SpecialAccount：`SpecialAccount = Account:new()`, 接下来调用SpecialAccount的实例s：
+
+`s = SpecialAccount:new{limit=1000.00}`, 这三者关系可以理解为：s继承SpecialAccount，SpecialAccount继承Account, 如果调用s的某个方法，如果s中找不到就会去SpecialAccount中搜索，SpecialAccount中找不到就去Account中找。也可重定义Account中的方法：
 
 ```lua
 s = SpecialAccount:new{limit=1000.00}
@@ -850,12 +850,10 @@ function receive (prod)
     local status, value = coroutine.resume(prod)
     return value
 end
-
 function send (x)
     coroutine.yield(x)
 end
-
-function producer ()
+function producer ()  -- 生产
     return coroutine.create(function ()
         while true do
             local x = io.read()
@@ -863,15 +861,14 @@ function producer ()
         end
     end)
 end
-
-function consumer (prod)
+function consumer (prod)  -- 消费
     while true do
         local x = receive(prod)
         io.write(x, "\n")
     end
 end
 
-consumer(producer())
+consumer(producer())  -- consumer is the boss
 ```
 
 
@@ -941,4 +938,4 @@ debug库由两种类型函数组成：`introspective functionsh`和`hooks`，前
 
 ##### Access local variables
 
-`debug.getlocal`: 第一个参数为stack level, 第二个参数为变量索引，返回改变量的当前名称和值。
+通过`debug.getlocal`访问局部变量:，第一个参数为stack level, 第二个参数为变量索引，返回改变量的当前名称和值。
