@@ -108,7 +108,7 @@ int main() {
 
 从上述进程内存地址空间，以及变量在内存中的分布，我们可以确认，S是肯定在堆上分布的，因为是通过`malloc`来分布的，dummy确实在`S->stack`的地址范围内，将`&dummy`,`S->stack`，以及`top`三者内存地址打印出来，貌似也确实，如下：
 
-<img src="/Users/zhongrunkang/Desktop/Linux-C-Learn/pic/coroutine_address.png" alt="coroutine_address" style="zoom:50%;" />
+<img src="../pic/coroutine_address.png" alt="coroutine_address" style="zoom:50%;" />
 
 但是`dummy`这个变量的地址为啥会在堆上分配呢，答案就是`makecontext`中，代码入下
 
