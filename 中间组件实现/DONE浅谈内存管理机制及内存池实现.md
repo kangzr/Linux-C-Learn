@@ -718,3 +718,22 @@ Andriod系统中的应用程序基本都是Java进程。
 [tcmalloc图](https://zhuanlan.zhihu.com/p/29216091)
 
 [tcmalloc官方文档](https://zhuanlan.zhihu.com/p/29216091)
+
+
+
+
+
+
+
+### QA
+
+#### Q：Linux中哪些内存是可移动的，哪些是可回收的?
+
+A：按照可移动性内存可分为三种类型：1）UNMOVABLE，不可移动，kernel分配的内存基本属于这种类型；2）RECLAIMABLE：不可移动，但可回收，文件映射内存属于这个种类型；3）MOVALBLE：可随意移动，用户空间的内存基本属于这种类型。[参考](http://www.wowotech.net/memory_management/memory-fragment.html)
+
+
+
+
+
+
+
