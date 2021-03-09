@@ -231,11 +231,65 @@ ps -aux | grep "runoob.sh"
 
 # 查看cpu信息: cat/proc/cpuinfo
 # 直接获取cpu核数：grep "model name" /proc/cpuinfo | wc -l
+
+
+# 搜索单个文件
+grep match_pattern file_name
+# 搜索多个文件
+grep match_pattern file_1 file_2 file_3...
+# 除match_pattern外所有行（反向）
+grep -v match_pattern file_name
+# match_pattern（加颜色）
+grep match_pattern file_name --color=auto
+# 统计文件中包含匹配字符串的行数-c：  
+grep -c "text" file_name
+# 多级目录中对文本进行递归搜索
+grep match_pattern . -r -n
+#只在目录中所有的.php和.html文件中递归搜索字符"main()"
+grep "main()" . -r --include *.{php,html}
+#在搜索结果中排除所有README文件
+grep "main()" . -r --exclude "README"
+#在搜索结果中排除filelist文件列表里的文件
+grep "main()" . -r --exclude-from filelist
+
+# 使用 -E 支持正则表达式
 ```
 
 
 
 ### 7. awk
+
+将一行数据分成数个字段处理，默认的字段分隔符为空格键或tab键，可以通过FS来设置分隔符。
+
+```shell
+# 将分隔符默认设置为":", 筛选第三个字段小于10的行，打印第一个和第三个字段。
+$cat /etc/passwd | awk 'BEGIN {FS=":"} $3 < 10 {print $1 "\t " $3}'
+# 善用awk分隔符
+cat log.txt | awk -F"," '{print $1}'
+cat test.csv | awk -F"[,:]" '{print $2, $3}'
+#删掉某一列，例如：删除第二列
+cat g55_set_child_box_lv_pos31.log  | awk '{$2="";print $0}'
+# 统计 单词 频率 并排序 ！！！！！
+sort | uniq -c | sort -k 1
+# 对某列进行筛选， 例如：根据某一行的数字大小过滤，取第5列大于12000
+awk '$5>12000{print$1,$3,$5}'
+# 组合拳
+ps aux | grep "command_all" | awk '{print $2}' | xargs kill -9
+
+# 正则匹配
+~ 匹配正则
+!~ 不匹配正则
+== 等于
+!= 不等于
+# 匹配第二个位置以g开头的行
+#### 注意没有{}    print才有{}   -F  要用单引号
+awk -F'-' '$2 ~ /^g/'
+cat g55_logtail.log | awk -F'-' '$3 ~ /^g/' > test.log
+```
+
+
+
+
 
 
 
@@ -245,15 +299,77 @@ ps -aux | grep "runoob.sh"
 
 ### sed
 
+用于处理整行数据, 流编辑器， sed不会对原始文件做任何改变
+
+```shell
+1，删除d
+# 删除第2至第5行
+$nl /ect/paswd | sed '2,5d'
+$cat /etc/passwd | sed '/UNIX/d' # 删除好办UNIX的各行
+#删除第2至最后一行
+sed '2,$d'
+#nl 指令显示行号
+
+2，新增a
+# 在第2行后面新增
+$nl /etc/passwd | sed '2a Drink...\
+dringk beer?'
+
+3, 替换c
+# 将第2-5行替换为 "No 2-5 Number"
+$ nl /etc/passwd | sed '2,5c No 2-5 number'
+$ sed 's/Unix/UNIX/g' file  把Unix替换为UNIX (加g的话替换所有)
+# 用替换做删除
+set 's/ .*$//'  删除第一个空格到行尾的所有字符
+sed '1,10s/unix/UNIX/g' file   把file前10行中的unix改位UNIX
+
+4，打印p
+# 打印第5-7行  -n指定函数
+$nl /etc/passwd | sed -n "5,7p"
+or
+$head -n 7 | tail -n 3
+# 删掉批注后面的内容
+$cat /etc/man.config | grep 'MAN' | sed 's/#.*$//g'
+# 删掉空白行
+sed '/^$/d'
+```
+
+
+
 
 
 ### head和tail
 
 tail -f file：只显示增量文件数据
 
+```shell
+-f, --follow[={name|descriptor}]
+# 当文件增长时,输出后续添加的数据; -f, --follow以及 --follow=descriptor 都是相同的意思
+# -n, --lines=N
+# 输出最后N行,而非默认的最后10行
+tail -n 10 file # 查看文件file最后10行log
+tail -f file # 实时
+```
+
+
+
 ### find
 
 ```shell
+find: search for files in a directory hierarchy.  
+find path -option -exce
+
+# 删除当前目录下所有以.txt结尾的文件  
+$ find . "*.txt" | xargs rm   (find . "*.txt" -exec rm -rf {} \)
+# 根据user进行查找(查找用户为kangzhongrun的所有文件，-group根据组来查找)
+$ find path (-not) -user username(kangzhongrun)
+# 根据size查找(大于1k的文件， -1k小于1k的文件)
+$ find path -size +1k
+# 根据权限查找(权限为700)
+$ find path -perm 0700
+# 把path1目录下的.txt文件复制到path2
+find path1 -name '*.txt' -exec cp -rp {} path2 \;
+
 find -iname login
 ```
 
@@ -351,12 +467,69 @@ cat /proc/meminfo
 -c : 取出第几个字符
 -b : 以字节为单位进行分割
 
-
+cut -d ':' -f 3,5  # (第3、5列)
 ```
 
 
 
 
+
+### split
+
+```shell
+-b: 接切割文件大小 eg: split -b 300k -d file file_
+-l: 以行切割 eg: split -l 10 -d file file_
+# 合并
+> cat file_* >> file_merge
+# 求md5和
+md5sum file
+md5sum file_merge
+```
+
+
+
+
+
+### wc
+
+```shell
+# 显示多少字 多少行 多少字符
+-l: 仅列出行
+-w: 仅列出多少字
+-m: 多少字符
+```
+
+
+
+### sort
+
+```shell
+-t: 分隔符(默认tab)  
+-k: 指定排序列
+-u: 去重
+-r：逆序
+-n: 按数字进行排序
+
+cat log.txt | sort -t '=' -k 3n
+```
+
+
+
+### tr
+
+```shell
+# tr 过滤器，用来转换来自标准输入的字符
+# tr from-chars to-chars  将from-chars替换换成to-chars
+
+cut -d: -f1,6 /etc/passwd | tr : '\t'  # 将冒号替换成制表符
+tr '[a-z]' '[A-Z]' # 把小写替换成大写
+
+-d选项：用来删除掉输入流中的字符     
+# 删除文本中所有空格
+
+tr -d from-chars 任何from-chars中字符删掉
+set 's/ //g' file
+```
 
 
 
